@@ -1,349 +1,300 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
-  This file is part of manjaro-tools.
+This file is part of manjaro-tools.
 
-  Copyright 2015 Manjaro Developers
+Copyright 2015 Manjaro Developers
 
-  manjaro-tools is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
+manjaro-tools is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or
+(at your option) any later version.
 
-  manjaro-tools is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
+manjaro-tools is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
 
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU Lesser General Public License
+along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="profile.conf" xmlns:xi="http://www.w3.org/2001/XInclude">
 
-	<refentryinfo>
-		<title>profile.conf-+</title>
-		<productname>manjaro-tools</productname>
+    <refentryinfo>
+        <title>profile.conf-+</title>
+        <productname>manjaro-tools</productname>
 
-		<authorgroup>
-		<author>
-			<contrib></contrib>
-			<firstname></firstname>
-			<surname></surname>
-			<email></email>
-		</author>
-		</authorgroup>
-	</refentryinfo>
-
-	<refmeta>
-		<refentrytitle>manjaro-tools.conf</refentrytitle>
-		<manvolnum>5</manvolnum>
-	</refmeta>
-
-	<refnamediv>
-		<refname>manjaro-tools.conf</refname>
-		<refpurpose>general configuration file for manjaro-tools</refpurpose>
-	</refnamediv>
+        <authorgroup>
+        <author>
+            <contrib></contrib>
+            <firstname></firstname>
+            <surname></surname>
+            <email></email>
+        </author>
+        </authorgroup>
+    </refentryinfo>
 
-	<refsynopsisdiv>
-		<para><filename>manjaro-tools.conf</filename></para>
-	</refsynopsisdiv>
+    <refmeta>
+        <refentrytitle>manjaro-tools.conf</refentrytitle>
+        <manvolnum>5</manvolnum>
+    </refmeta>
 
-	<refsect1>
-		<title>Description</title>
+    <refnamediv>
+        <refname>manjaro-tools.conf</refname>
+        <refpurpose>general configuration file for manjaro-tools</refpurpose>
+    </refnamediv>
 
-		<para>manjaro-tools.conf is a general configuration file for all manjaro-tools binaries. </para>
+    <refsynopsisdiv>
+        <para><filename>manjaro-tools.conf</filename></para>
+    </refsynopsisdiv>
 
-		<para>By default all the options in the file are commented, with a value equal to the
-		default value. To change it just uncomment and put the desired value.</para>
+    <refsect1>
+        <title>Description</title>
 
-	</refsect1>
+        <para>manjaro-tools.conf is a general configuration file for all manjaro-tools binaries. </para>
 
-	<refsect1>
-		<title>General options for all tools</title>
+        <para>By default all the options in the file are commented, with a value equal to the
+        default value. To change it just uncomment and put the desired value.</para>
 
-		<para>The following options are understood and used for various tools:</para>
+    </refsect1>
 
-		<variablelist>
-			<varlistentry>
-				<term><varname>branch=</varname></term>
+    <refsect1>
+        <title>General options for all tools</title>
 
-				<listitem><para>Takes <option>stable</option> (the default),
-				<option>testing</option> or <option>unstable</option>. It defines
-				against which repository will be used when compilling packages
-				with buildpkg.
-				</para></listitem>
-			</varlistentry>
+        <para>The following options are understood and used for various tools:</para>
 
-			<varlistentry>
-				<term><varname>arch=</varname></term>
+        <variablelist>
+            <varlistentry>
+                <term><varname>target_branch=</varname></term>
 
-				<listitem><para>Takes <option>i686</option> or <option>x86_64</option>.
-				By default it will try to autodetect the current architecture.
-				It defines in witch architecture the packages will be built with
-				buildpkg.
-				</para></listitem>
-			</varlistentry>
+                <listitem><para>Takes <option>stable</option> (the default),
+                <option>testing</option> or <option>unstable</option>. It defines
+                against which repository will be used when compilling packages
+                with buildpkg.
+                </para></listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>cache_dir=</varname></term>
+            <varlistentry>
+                <term><varname>target_arch=</varname></term>
 
-				<listitem><para>Cache dir where buildpkg and buildise will cache
-				packages. Default is "/var/cache/manjaro-tools".
-				</para></listitem>
-			</varlistentry>
+                <listitem><para>Takes <option>i686</option> or <option>x86_64</option>.
+                By default it will try to autodetect the current architecture.
+                It defines in witch architecture the packages will be built with
+                buildpkg.
+                </para></listitem>
+            </varlistentry>
 
+            <varlistentry>
+                <term><varname>cache_dir=</varname></term>
 
-			<varlistentry>
-				<term><varname>chroots_dir=</varname></term>
+                <listitem><para>Cache dir where buildpkg and buildise will cache
+                packages. Default is "/var/cache/manjaro-tools".
+                </para></listitem>
+            </varlistentry>
 
-				<listitem><para>Build dir where buildpkg or buildiso chroot
-				environment will be created. Default is "/var/lib/manjaro-tools".
-				</para></listitem>
-			</varlistentry>
 
-			<varlistentry>
-				<term><varname>log_dir=</varname></term>
+            <varlistentry>
+                <term><varname>chroots_dir=</varname></term>
 
-				<listitem><para>Log dir where buildiso log the build process. Default is  "/var/log/manjaro-tools".
-				</para></listitem>
-			</varlistentry>
+                <listitem><para>Build dir where buildpkg or buildiso chroot
+                environment will be created. Default is "/var/lib/manjaro-tools".
+                </para></listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>build_mirror=</varname></term>
+            <varlistentry>
+                <term><varname>log_dir=</varname></term>
 
-				<listitem><para>Default mirror to be used when building
-				packages.
-				</para></listitem>
-			</varlistentry>
-		</variablelist>
-	</refsect1>
+                <listitem><para>Log dir where buildiso log the build process. Default is  "/var/log/manjaro-tools".
+                </para></listitem>
+            </varlistentry>
 
-	<refsect1>
-		<title>Options for buildtree</title>
+            <varlistentry>
+                <term><varname>build_mirror=</varname></term>
 
-		<para>The following options are understood:</para>
+                <listitem><para>Default mirror to be used when building
+                packages.
+                </para></listitem>
+            </varlistentry>
 
-		<variablelist>
-			<varlistentry>
-				<term><varname>repo_tree=</varname></term>
+        </variablelist>
+    </refsect1>
 
-				<listitem><para>Manjaro package tree. Default is
-				"('core' 'extra' 'community' 'multilib' 'openrc')".
-				</para></listitem>
-			</varlistentry>
+    <refsect1>
+        <title>Options for buildtree</title>
 
-			<varlistentry>
-				<term><varname>host_tree=</varname></term>
+        <para>The following options are understood:</para>
 
-				<listitem><para>Host tree. Default is "https://github.com/manjaro".
-				</para></listitem>
-			</varlistentry>
+        <variablelist>
+            <varlistentry>
+                <term><varname>repo_tree=</varname></term>
 
+                <listitem><para>Manjaro package tree. Default is
+                "('core' 'extra' 'community' 'multilib' 'openrc')".
+                </para></listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>host_tree_abs=</varname></term>
+            <varlistentry>
+                <term><varname>host_tree=</varname></term>
 
-				<listitem><para>Host tree for abs. Default is
-				"https://projects.archlinux.org/git/svntogit".
-				</para></listitem>
-			</varlistentry>
-		</variablelist>
-	</refsect1>
+                <listitem><para>Host tree. Default is "https://github.com/manjaro".
+                </para></listitem>
+            </varlistentry>
 
-	<refsect1>
-		<title>Options for buildpkg</title>
 
-		<para>The following options are understood:</para>
+            <varlistentry>
+                <term><varname>host_tree_abs=</varname></term>
 
-		<variablelist>
-			<varlistentry>
-				<term><varname>buildset_pkg=</varname></term>
+                <listitem><para>Host tree for abs. Default is
+                "https://projects.archlinux.org/git/svntogit".
+                </para></listitem>
+            </varlistentry>
+        </variablelist>
+    </refsect1>
 
-				<listitem><para>Default set for buildpkg without the .set
-				extension.
-				</para></listitem>
-			</varlistentry>
+    <refsect1>
+        <title>Options for buildpkg</title>
 
-		</variablelist>
-	</refsect1>
+        <para>The following options are understood:</para>
 
-	<refsect1>
-		<title>Options for buildiso</title>
+        <variablelist>
+            <varlistentry>
+                <term><varname>build_list_pkg=</varname></term>
 
-		<para>The following options are understood:</para>
+                <listitem><para>Default list for buildpkg without the .list
+                extension.
+                </para></listitem>
+            </varlistentry>
 
-		<variablelist>
-		<varlistentry>
-			<term><varname>buildset_iso=</varname></term>
+        </variablelist>
+    </refsect1>
 
-			<listitem><para>Default set for buildiso without the .set
-			extension.
-			</para></listitem>
-		</varlistentry>
+    <refsect1>
+        <title>Options for buildiso</title>
 
-		<varlistentry>
-			<!-- TODO: We should tell where exactly this is used -->
-			<term><varname>dist_name=</varname></term>
+        <para>The following options are understood:</para>
 
-			<listitem><para>Name of the distribution.
-			</para></listitem>
-		</varlistentry>
+        <variablelist>
+        <varlistentry>
+            <term><varname>build_list_iso=</varname></term>
 
+            <listitem><para>Default list for buildiso without the .list
+            extension.
+            </para></listitem>
+        </varlistentry>
 
-		<varlistentry>
-			<!-- TODO: We should tell where exactly this is used -->
-			<term><varname>dist_release=</varname></term>
+        <varlistentry>
+            <term><varname>dist_release=</varname></term>
 
-			<listitem><para>Release of the distribution.
-			</para></listitem>
-		</varlistentry>
+            <listitem><para>Release version of the distribution.
+            </para></listitem>
+        </varlistentry>
 
-		<varlistentry>
-			<term><varname>dist_codename=</varname></term>
+        <varlistentry>
+            <!-- TODO: We should tell where exactly this is used -->
+            <term><varname>dist_branding=</varname></term>
 
-			<listitem><para>Codename of this release. It's the value
-			of DISTRIB_CODENAME in /etc/lsb-release.
-			</para></listitem>
-		</varlistentry>
+            <listitem><para>Branding of the distribution.
+            </para></listitem>
+        </varlistentry>
 
-		<varlistentry>
-			<!-- TODO: We should tell where exactly this is used -->
-			<term><varname>dist_branding=</varname></term>
+        <varlistentry>
+            <term><varname>gpgkey=</varname></term>
 
-			<listitem><para>Branding of the distribution.
-			</para></listitem>
-		</varlistentry>
+            <listitem><para>If the gpgkey is supplied, the sfs images on iso will be signed.
+                    If the key is left empty or commented, signing will be skipped.
+                    </para></listitem>
+        </varlistentry>
 
-		<varlistentry>
-			<!-- TODO: We should tell where exactly this is used -->
-			<term><varname>iso_publisher=</varname></term>
+        <varlistentry>
+            <term><varname>initsys=</varname></term>
 
-			<listitem><para>Publisher of the iso.
-			</para></listitem>
-		</varlistentry>
+            <listitem><para>Takes <option>systemd</option> (the default)
+            or <option>openrc</option>. Selecting and option will change
+            how the hostname, the displaymanager and services will be configured.
+            For services also controls if buildiso will use enable_systemd and
+            enable_systemd_live or enable_openrc and enable_openrc_live to determine
+            the default services that will be enabled automatically.
+            </para></listitem>
+        </varlistentry>
 
-		<varlistentry>
-			<!-- TODO: We should tell where exactly this is used -->
-			<term><varname>iso_app_id=</varname></term>
+        <varlistentry>
+            <term><varname>kernel=</varname></term>
 
-			<listitem><para>Application ID of the iso.
-			</para></listitem>
-		</varlistentry>
+            <listitem><para>Takes a string corresponding to a
+            manjaro kernel package (ex: linux318 for linux 3.18).
+            </para></listitem>
+        </varlistentry>
 
-		<varlistentry>
-			<!-- TODO: Need list of other available compressions -->
-			<term><varname>iso_compression=</varname></term>
+        </variablelist>
+    </refsect1>
 
-			<listitem><para>Defaults compression that will be used
-			when creating the various images. Defaults to xz.
-			</para></listitem>
-		</varlistentry>
+        <refsect1>
+        <title>Options for deployiso</title>
 
-		<varlistentry>
-			<term><varname>iso_checksum=</varname></term>
+        <para>The following options are understood:</para>
 
-			<listitem><para>Checksum that will be created against the
-			final .iso file. Can be <option>md5</option> (the default),
-			<option>sha1</option>, <option>sha256</option>,
-			<option>sha384</option> or <option>sha512</option>.
-			</para></listitem>
-		</varlistentry>
+        <variablelist>
 
-		<varlistentry>
-			<term><varname>initsys=</varname></term>
+            <varlistentry>
+                <term><varname>account=</varname></term>
 
-			<listitem><para>Takes <option>systemd</option> (the default)
-			or <option>openrc</option>. Selecting and option will change
-			how the hostname, the displaymanager and services will be configured.
-			For services also controls if buildiso will use start_systemd and
-			start_systemd_live or start_openrc and start_openrc_live to determine
-			the default services that will be enabled automatically.
-			</para></listitem>
-		</varlistentry>
+                <listitem><para>Default user to be used for upload.
+                </para></listitem>
+            </varlistentry>
 
-		<varlistentry>
-			<term><varname>kernel=</varname></term>
+            <varlistentry>
+                <term><varname>project=</varname></term>
 
-			<listitem><para>Takes a string corresponding to a
-			manjaro kernel package (ex: linux318 for linux 3.18).
-			</para></listitem>
-		</varlistentry>
+                <listitem><para>Default SF project name to be used for upload.
+                </para></listitem>
+            </varlistentry>
 
-		</variablelist>
-	</refsect1>
+            <varlistentry>
+                <term><varname>limit=</varname></term>
 
-		<refsect1>
-		<title>Options for deployiso</title>
+                <listitem><para>Default upload bandwidth limit in kb/s.
+                </para></listitem>
+            </varlistentry>
 
-		<para>The following options are understood:</para>
+             <varlistentry>
+            <term><varname>tracker_url=</varname></term>
 
-		<variablelist>
+            <listitem><para>Default tracker announce for the torrent.
+                    The tracker url can also contain comma separated urls.
+                    </para></listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>remote_url=</varname></term>
+            <varlistentry>
+                <term><varname>piece_size=</varname></term>
 
-				<listitem><para>Default url to be used for upload.
-				</para></listitem>
-			</varlistentry>
+                <listitem><para>Default priece size for the torrent in 2^n.
+                        </para></listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>remote_project=</varname></term>
+            <varlistentry>
+                <term><varname>iso_mirrors=</varname></term>
 
-				<listitem><para>Default project to be used for upload.
-				</para></listitem>
-			</varlistentry>
+                <listitem><para>Array of iso mirrors that will be
+                used for webseeds.
+                </para></listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>remote_target=</varname></term>
+        </variablelist>
+    </refsect1>
 
-				<listitem><para>Default server path to be used for upload.
-				</para></listitem>
-			</varlistentry>
-
-			<varlistentry>
-				<term><varname>remote_user=</varname></term>
-
-				<listitem><para>Default user to be used for upload.
-				</para></listitem>
-			</varlistentry>
-
-			<varlistentry>
-				<term><varname>limit=</varname></term>
-
-				<listitem><para>Default upload bandwidth limit in kb/s.
-				</para></listitem>
-			</varlistentry>
-
-			<varlistentry>
-				<term><varname>tracker_url=</varname></term>
-
-				<listitem><para>Default tracker announce for the torrent.
-				The tracker url can also contain comma separated urls.
-				</para></listitem>
-			</varlistentry>
-
-			<varlistentry>
-				<term><varname>piece_size=</varname></term>
-
-				<listitem><para>Default priece size for the torrent in 2^n.
-				</para></listitem>
-			</varlistentry>
-		</variablelist>
-	</refsect1>
-
-	<refsect1>
-		<title>See Also</title>
-		<para>
-			<citerefentry project='manjaro-tools'><refentrytitle>profiles.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-			<citerefentry project='manjaro-tools'><refentrytitle>buildiso</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-			<citerefentry project='manjaro-tools'><refentrytitle>deployiso</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-			<citerefentry project='manjaro-tools'><refentrytitle>buildtree</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-			<citerefentry project='manjaro-tools'><refentrytitle>buildpkg</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-		</para>
-	</refsect1>
+    <refsect1>
+        <title>See Also</title>
+        <para>
+            <citerefentry project='manjaro-tools'><refentrytitle>profiles.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+            <citerefentry project='manjaro-tools'><refentrytitle>buildiso</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+            <citerefentry project='manjaro-tools'><refentrytitle>deployiso</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+            <citerefentry project='manjaro-tools'><refentrytitle>buildtree</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+            <citerefentry project='manjaro-tools'><refentrytitle>buildpkg</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        </para>
+    </refsect1>
 
 </refentry>
 

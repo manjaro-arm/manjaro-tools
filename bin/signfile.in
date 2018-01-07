@@ -17,13 +17,16 @@ LIBDIR='@libdir@'
 
 import ${LIBDIR}/util.sh
 
-load_vars "$HOME/.makepkg.conf"
+load_user_info
+
+load_vars "${PAC_USERCONFDIR}/makepkg.conf" || load_vars "$USER_HOME/.makepkg.conf"
 load_vars /etc/makepkg.conf
 
 if [ ! -e "$1" ]; then
-	error "%s does not exist!" "$1"
-	exit 1
+    error "%s does not exist!" "$1"
+    exit 1
 fi
 
-msg "Signing %s with key %s" "$1" "${GPGKEY}..."
+msg2 "Signing [%s] with key %s" "${1##*/}" "${GPGKEY}..."
+[[ -e "$1".sig ]] && rm "$1".sig
 gpg --detach-sign --use-agent -u "${GPGKEY}" "$1"

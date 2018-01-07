@@ -16,32 +16,32 @@ version=@version@
 match=$1
 
 if [[ -z $match ]]; then
-	echo 'Usage: finddeps <depname>'
-	echo ''
-	echo 'Find packages that depend on a given depname.'
-	echo 'Run this script from the top-level directory of your ABS tree.'
-	echo ''
-	exit 1
+    echo 'Usage: finddeps <depname>'
+    echo ''
+    echo 'Find packages that depend on a given depname.'
+    echo 'Run this script from the top-level directory of your ABS tree.'
+    echo ''
+    exit 1
 fi
 
 find $PWD -type d | while read d; do
-	if [[ -f "$d/PKGBUILD" ]]; then
-		unset pkgname depends makedepends optdepends
-		. "$d/PKGBUILD"
-		for dep in "${depends[@]}"; do
-			# lose the version comparator, if any
-			depname=${dep%%[<>=]*}
-			[[ $depname = $match ]] && msg "$d (depends)"
-		done
-		for dep in "${makedepends[@]}"; do
-			# lose the version comparator, if any
-			depname=${dep%%[<>=]*}
-			[[ $depname = $match ]] && msg "$d (makedepends)"
-		done
-		for dep in "${optdepends[@]/:*}"; do
-			# lose the version comaparator, if any
-			depname=${dep%%[<>=]*}
-			[[ $depname = $match ]] && msg "$d (optdepends)"
-		done
-	fi
+    if [[ -f "$d/PKGBUILD" ]]; then
+        unset pkgname depends makedepends optdepends
+        . "$d/PKGBUILD"
+        for dep in "${depends[@]}"; do
+            # lose the version comparator, if any
+            depname=${dep%%[<>=]*}
+            [[ $depname = $match ]] && msg "$d (depends)"
+        done
+        for dep in "${makedepends[@]}"; do
+            # lose the version comparator, if any
+            depname=${dep%%[<>=]*}
+            [[ $depname = $match ]] && msg "$d (makedepends)"
+        done
+        for dep in "${optdepends[@]/:*}"; do
+            # lose the version comaparator, if any
+            depname=${dep%%[<>=]*}
+            [[ $depname = $match ]] && msg "$d (optdepends)"
+        done
+    fi
 done

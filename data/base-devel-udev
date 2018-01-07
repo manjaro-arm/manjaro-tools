@@ -2,7 +2,7 @@ autoconf
 automake
 binutils
 bison
-eudev-systemdcompat
+libeudev
 fakeroot
 file
 findutils
@@ -22,7 +22,7 @@ pkg-config
 sed
 sudo
 texinfo
-util-linux
+util-linux-nosystemd
 which
 >multilib gcc-multilib
 >multilib lib32-fakeroot

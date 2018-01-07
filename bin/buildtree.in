@@ -16,28 +16,27 @@ SYSCONFDIR='@sysconfdir@'
 
 [[ -r ${LIBDIR}/util-msg.sh ]] && source ${LIBDIR}/util-msg.sh
 import ${LIBDIR}/util.sh
-import ${LIBDIR}/util-pkgtree.sh
+import ${LIBDIR}/util-pkg-tree.sh
 
 display_settings(){
-	show_version
-	show_config
+    show_version
+    show_config
 
-	msg "ARGS:"
-	msg2 "sync: %s" "${sync}"
-	msg2 "abs: %s" "${abs}"
-	msg2 "clean: %s" "${clean}"
+    msg "ARGS:"
+    msg2 "sync: %s" "${sync}"
+    msg2 "abs: %s" "${abs}"
+    msg2 "clean: %s" "${clean}"
 
-	msg "PATHS:"
-	msg2 "tree_dir: %s" "${tree_dir}"
-	msg2 "repo_tree: %s" "${repo_tree[*]}"
-	msg2 "host_tree: %s" "${host_tree}"
-	msg2 "host_tree_abs: %s" "${host_tree_abs}"
+    msg "PATHS:"
+    msg2 "tree_dir: %s" "${tree_dir}"
+    msg2 "repo_tree: %s" "${repo_tree[*]}"
+    msg2 "host_tree: %s" "${host_tree}"
+    msg2 "host_tree_abs: %s" "${host_tree_abs}"
 }
 
 load_user_info
 
-load_config "${USERCONFDIR}/manjaro-tools.conf"
-load_config "${SYSCONFDIR}/manjaro-tools.conf"
+load_config "${MT_USERCONFDIR}/manjaro-tools.conf" || load_config "${SYSCONFDIR}/manjaro-tools.conf"
 
 sync=false
 pretend=false
@@ -45,35 +44,35 @@ abs=false
 clean=false
 
 usage() {
-	echo "Usage: ${0##*/} [options]"
-	echo "    -s            Sync manjaro tree"
-	echo "    -a            Sync arch abs"
-	echo '    -c            Clean package tree'
-	echo '    -q            Query settings'
-	echo '    -h            This help'
-	echo ''
-	echo ''
-	exit $1
+    echo "Usage: ${0##*/} [options]"
+    echo "    -s            Sync manjaro tree"
+    echo "    -a            Sync arch abs"
+    echo '    -c            Clean package tree'
+    echo '    -q            Query settings'
+    echo '    -h            This help'
+    echo ''
+    echo ''
+    exit $1
 }
 
-orig_argv=("$@")
+orig_argv=("$0" "$@")
 
 opts='sacqh'
 
 while getopts "${opts}" arg; do
-	case "${arg}" in
-		s) sync=true ;;
-		a) abs=true ;;
-		c) clean=true ;;
-		q) pretend=true ;;
-		h|?) usage 0 ;;
-		*) echo "invalid argument '${arg}'"; usage 1 ;;
-	esac
+    case "${arg}" in
+        s) sync=true ;;
+        a) abs=true ;;
+        c) clean=true ;;
+        q) pretend=true ;;
+        h|?) usage 0 ;;
+        *) echo "invalid argument '${arg}'"; usage 1 ;;
+    esac
 done
 
 shift $(($OPTIND - 1))
 
-check_root "$0" "${orig_argv[@]}"
+check_root
 
 prepare_dir "${tree_dir_abs}"
 

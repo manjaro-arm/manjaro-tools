@@ -9,688 +9,543 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-import ${LIBDIR}/util-iso-image.sh
-import ${LIBDIR}/util-iso-boot.sh
-import ${LIBDIR}/util-iso-calamares.sh
+import ${LIBDIR}/util-chroot.sh
+import ${LIBDIR}/util-iso-chroot.sh
+import ${LIBDIR}/util-yaml.sh
 
 error_function() {
-	if [[ -p $logpipe ]]; then
-		rm "$logpipe"
-	fi
-	# first exit all subshells, then print the error
-	if (( ! BASH_SUBSHELL )); then
-		error "A failure occurred in %s()." "$1"
-		plain "Aborting..."
-	fi
-	umount_image
-	exit 2
+    if [[ -p $logpipe ]]; then
+        rm "$logpipe"
+    fi
+    local func="$1"
+    # first exit all subshells, then print the error
+    if (( ! BASH_SUBSHELL )); then
+        error "A failure occurred in %s()." "$func"
+        plain "Aborting..."
+    fi
+    umount_fs
+    umount_img
+    exit 2
 }
 
 # $1: function
 run_log(){
-	local func="$1"
-	local tmpfile=/tmp/$func.ansi.log logfile=${log_dir}/$(gen_iso_fn).$func.log
-	logpipe=$(mktemp -u "/tmp/$func.pipe.XXXXXXXX")
-	mkfifo "$logpipe"
-	tee "$tmpfile" < "$logpipe" &
-	local teepid=$!
-	$func &> "$logpipe"
-	wait $teepid
-	rm "$logpipe"
-	cat $tmpfile | perl -pe 's/\e\[?.*?[\@-~]//g' > $logfile
-	rm "$tmpfile"
+    local func="$1"
+    local tmpfile=${tmp_dir}/$func.ansi.log logfile=${log_dir}/$(gen_iso_fn).$func.log
+    logpipe=$(mktemp -u "${tmp_dir}/$func.pipe.XXXXXXXX")
+    mkfifo "$logpipe"
+    tee "$tmpfile" < "$logpipe" &
+    local teepid=$!
+    $func &> "$logpipe"
+    wait $teepid
+    rm "$logpipe"
+    cat $tmpfile | perl -pe 's/\e\[?.*?[\@-~]//g' > $logfile
+    rm "$tmpfile"
 }
 
 run_safe() {
-	local restoretrap func="$1"
-	set -e
-	set -E
-	restoretrap=$(trap -p ERR)
-	trap 'error_function $func' ERR SIGINT SIGTERM
+    local restoretrap func="$1"
+    set -e
+    set -E
+    restoretrap=$(trap -p ERR)
+    trap 'error_function $func' ERR
 
-	if ${is_log};then
-		run_log "$func"
-	else
-		"$func"
-	fi
+    if ${verbose};then
+        run_log "$func"
+    else
+        "$func"
+    fi
 
-	eval $restoretrap
-	set +E
-	set +e
+    eval $restoretrap
+    set +E
+    set +e
 }
 
-clean_pacman_conf(){
-	local repositories=$(get_repos "${pacman_conf}") uri='file://'
-	msg "Cleaning [%s/etc/pacman.conf] ..." "$1"
-	for repo in ${repositories[@]}; do
-		case ${repo} in
-			'options'|'core'|'extra'|'community'|'multilib') continue ;;
-			*)
-				msg2 "parsing [%s] ..." "${repo}"
-				parse_section "${repo}" "${pacman_conf}"
-				if [[ ${pc_value} == $uri* ]]; then
-					msg2 "Removing local repo [%s] ..." "${repo}"
-					sed -i "/^\[${repo}/,/^Server/d" $1/etc/pacman.conf
-				fi
-			;;
-		esac
-	done
-	msg "Done cleaning [%s/etc/pacman.conf]" "$1"
+trap_exit() {
+    local sig=$1; shift
+    error "$@"
+    umount_fs
+    trap -- "$sig"
+    kill "-$sig" "$$"
+}
+
+configure_thus(){
+    local fs="$1"
+    msg2 "Configuring Thus ..."
+    source "$fs/etc/mkinitcpio.d/${kernel}.preset"
+    local conf="$fs/etc/thus.conf"
+    echo "[distribution]" > "$conf"
+    echo "DISTRIBUTION_NAME = \"${dist_name} Linux\"" >> "$conf"
+    echo "DISTRIBUTION_VERSION = \"${dist_release}\"" >> "$conf"
+    echo "SHORT_NAME = \"${dist_name}\"" >> "$conf"
+    echo "[install]" >> "$conf"
+    echo "LIVE_MEDIA_SOURCE = \"/run/miso/bootmnt/${iso_name}/${target_arch}/rootfs.sfs\"" >> "$conf"
+    echo "LIVE_MEDIA_DESKTOP = \"/run/miso/bootmnt/${iso_name}/${target_arch}/desktopfs.sfs\"" >> "$conf"
+    echo "LIVE_MEDIA_TYPE = \"squashfs\"" >> "$conf"
+    echo "LIVE_USER_NAME = \"${username}\"" >> "$conf"
+    echo "KERNEL = \"${kernel}\"" >> "$conf"
+    echo "VMLINUZ = \"$(echo ${ALL_kver} | sed s'|/boot/||')\"" >> "$conf"
+    echo "INITRAMFS = \"$(echo ${default_image} | sed s'|/boot/||')\"" >> "$conf"
+    echo "FALLBACK = \"$(echo ${fallback_image} | sed s'|/boot/||')\"" >> "$conf"
+
+    if [[ -f $fs/usr/share/applications/thus.desktop && -f $fs/usr/bin/kdesu ]];then
+        sed -i -e 's|sudo|kdesu|g' $fs/usr/share/applications/thus.desktop
+    fi
+}
+
+configure_live_image(){
+    local fs="$1"
+    msg "Configuring [livefs]"
+    configure_hosts "$fs"
+    configure_system "$fs"
+    configure_services "$fs"
+    configure_calamares "$fs"
+    [[ ${edition} == "sonar" ]] && configure_thus "$fs"
+    write_live_session_conf "$fs"
+    msg "Done configuring [livefs]"
+}
+
+make_sig () {
+    local idir="$1" file="$2"
+    msg2 "Creating signature file..."
+    cd "$idir"
+    user_own "$idir"
+    su ${OWNER} -c "gpg --detach-sign --default-key ${gpgkey} $file.sfs"
+    chown -R root "$idir"
+    cd ${OLDPWD}
+}
+
+make_checksum(){
+    local idir="$1" file="$2"
+    msg2 "Creating md5sum ..."
+    cd $idir
+    md5sum $file.sfs > $file.md5
+    cd ${OLDPWD}
 }
 
 # $1: image path
-make_sqfs() {
-	if [[ ! -d "$1" ]]; then
-		error "$1 is not a directory"
-		return 1
-	fi
-	local timer=$(get_timer) path=${work_dir}/iso/${iso_name}/${arch}
-	local name=${1##*/}
-	local sq_img="${path}/$name.sqfs"
-	mkdir -p ${path}
-	msg "Generating SquashFS image for %s" "${1}"
-	if [[ -f "${sq_img}" ]]; then
-		local has_changed_dir=$(find ${1} -newer ${sq_img})
-		msg2 "Possible changes for %s ..." "${1}"  >> /tmp/buildiso.debug
-		msg2 "%s" "${has_changed_dir}" >> /tmp/buildiso.debug
-		if [[ -n "${has_changed_dir}" ]]; then
-			msg2 "SquashFS image %s is not up to date, rebuilding..." "${sq_img}"
-			rm "${sq_img}"
-		else
-			msg2 "SquashFS image %s is up to date, skipping." "${sq_img}"
-			return
-		fi
-	fi
+make_sfs() {
+    local src="$1"
+    if [[ ! -e "${src}" ]]; then
+        error "The path %s does not exist" "${src}"
+        retrun 1
+    fi
+    local timer=$(get_timer) dest=${iso_root}/${iso_name}/${target_arch}
+    local name=${1##*/}
+    local sfs="${dest}/${name}.sfs"
+    mkdir -p ${dest}
+    msg "Generating SquashFS image for %s" "${src}"
+    if [[ -f "${sfs}" ]]; then
+        local has_changed_dir=$(find ${src} -newer ${sfs})
+        msg2 "Possible changes for %s ..." "${src}"  >> ${tmp_dir}/buildiso.debug
+        msg2 "%s" "${has_changed_dir}" >> ${tmp_dir}/buildiso.debug
+        if [[ -n "${has_changed_dir}" ]]; then
+            msg2 "SquashFS image %s is not up to date, rebuilding..." "${sfs}"
+            rm "${sfs}"
+        else
+            msg2 "SquashFS image %s is up to date, skipping." "${sfs}"
+            return
+        fi
+    fi
 
-	msg2 "Creating SquashFS image. This may take some time..."
-	local used_kernel=${kernel:5:1} mksqfs_args=(${1} ${sq_img} -noappend)
-	local highcomp="-b 256K -Xbcj x86"
-	[[ "${iso_compression}" != "xz" ]] && highcomp=""
+    if ${persist};then
+        local size=32G
+        local mnt="${mnt_dir}/${name}"
+        msg2 "Creating ext4 image of %s ..." "${size}"
+        truncate -s ${size} "${src}.img"
+        local ext4_args=()
+        ${verbose} && ext4_args+=(-q)
+        ext4_args+=(-O ^has_journal,^resize_inode -E lazy_itable_init=0 -m 0)
+        mkfs.ext4 ${ext4_args[@]} -F "${src}.img" &>/dev/null
+        tune2fs -c 0 -i 0 "${src}.img" &> /dev/null
+        mount_img "${work_dir}/${name}.img" "${mnt}"
+        msg2 "Copying %s ..." "${src}/"
+        cp -aT "${src}/" "${mnt}/"
+        umount_img "${mnt}"
 
-	if [[ "$name" == "mhwd-image" && ${used_kernel} < "4" ]]; then
-		mksqfs_args+=(-comp lz4)
-		if ${is_log};then
-			mksquashfs "${mksqfs_args[@]}" >/dev/null
-		else
-			mksquashfs "${mksqfs_args[@]}"
-		fi
-	else
-		mksqfs_args+=(-comp ${iso_compression} ${highcomp})
-		if ${is_log};then
-			mksquashfs "${mksqfs_args[@]}" >/dev/null
-		else
-			mksquashfs "${mksqfs_args[@]}"
-		fi
-	fi
+    fi
 
-	show_elapsed_time "${FUNCNAME}" "${timer_start}"
+    msg2 "Creating SquashFS image, this may take some time..."
+    local used_kernel=${kernel:5:1} mksfs_args=()
+    if ${persist};then
+        mksfs_args+=(${work_dir}/${name}.img)
+    else
+        mksfs_args+=(${src})
+    fi
+
+    mksfs_args+=(${sfs} -noappend)
+
+    local highcomp="-b 256K -Xbcj x86" comp='xz'
+
+    if [[ "${name}" == "mhwdfs" && ${used_kernel} < "4" ]]; then
+        mksfs_args+=(-comp lz4)
+    else
+        mksfs_args+=(-comp ${comp} ${highcomp})
+    fi
+    if ${verbose};then
+        mksquashfs "${mksfs_args[@]}" >/dev/null
+    else
+        mksquashfs "${mksfs_args[@]}"
+    fi
+    make_checksum "${dest}" "${name}"
+    ${persist} && rm "${src}.img"
+
+    if [[ -n ${gpgkey} ]];then
+        make_sig "${dest}" "${name}"
+    fi
+
+    show_elapsed_time "${FUNCNAME}" "${timer_start}"
 }
 
 assemble_iso(){
-	msg "Creating ISO image..."
-	local efi_boot_args=()
-	if [[ -f "${work_dir}/iso/EFI/miso/${iso_name}.img" ]]; then
-		msg2 "Setting efi args. El Torito detected."
-		efi_boot_args=("-eltorito-alt-boot"
-				"-e EFI/miso/${iso_name}.img"
-				"-isohybrid-gpt-basdat"
-				"-no-emul-boot")
-	fi
+    msg "Creating ISO image..."
+    local iso_publisher="$(get_osname) <$(get_disturl)>" \
+        iso_app_id="$(get_osname) Live/Rescue CD" \
+        mod_date=$(date -u +%Y-%m-%d-%H-%M-%S-00  | sed -e s/-//g)
 
-	xorriso -as mkisofs \
-		-iso-level 3 -rock -joliet \
-		-max-iso9660-filenames -omit-period \
-		-omit-version-number \
-		-relaxed-filenames -allow-lowercase \
-		-volid "${iso_label}" \
-		-appid "${iso_app_id}" \
-		-publisher "${iso_publisher}" \
-		-preparer "Prepared by manjaro-tools/${0##*/}" \
-		-eltorito-boot isolinux/isolinux.bin \
-		-eltorito-catalog isolinux/boot.cat \
-		-no-emul-boot -boot-load-size 4 -boot-info-table \
-		-isohybrid-mbr "${work_dir}/iso/isolinux/isohdpfx.bin" \
-		${efi_boot_args[@]} \
-		-output "${iso_dir}/${iso_file}" \
-		"${work_dir}/iso/"
+    xorriso -as mkisofs \
+        --modification-date=${mod_date} \
+        --protective-msdos-label \
+        -volid "${iso_label}" \
+        -appid "${iso_app_id}" \
+        -publisher "${iso_publisher}" \
+        -preparer "Prepared by manjaro-tools/${0##*/}" \
+        -r -graft-points -no-pad \
+        --sort-weight 0 / \
+        --sort-weight 1 /boot \
+        --grub2-mbr ${iso_root}/boot/grub/i386-pc/boot_hybrid.img \
+        -partition_offset 16 \
+        -b boot/grub/i386-pc/eltorito.img \
+        -c boot.catalog \
+        -no-emul-boot -boot-load-size 4 -boot-info-table --grub2-boot-info \
+        -eltorito-alt-boot \
+        -append_partition 2 0xef ${iso_root}/efi.img \
+        -e --interval:appended_partition_2:all:: \
+        -no-emul-boot \
+        -iso-level 3 \
+        -o ${iso_dir}/${iso_file} \
+        ${iso_root}/
+
+#         arg to add with xorriso-1.4.7
+#         -iso_mbr_part_type 0x00
 }
 
 # Build ISO
 make_iso() {
-	msg "Start [Build ISO]"
-	touch "${work_dir}/iso/.miso"
-	for d in $(find "${work_dir}" -maxdepth 1 -type d -name '[^.]*'); do
-		if [[ "$d" != "${work_dir}/iso" ]] && \
-		[[ "${d##*/}" != "iso" ]] && \
-		[[ "${d##*/}" != "efiboot" ]] && \
-		[[ "$d" != "${work_dir}" ]]; then
-			make_sqfs "$d"
-		fi
-	done
+    msg "Start [Build ISO]"
+    touch "${iso_root}/.miso"
+    for sfs_dir in $(find "${work_dir}" -maxdepth 1 -type d); do
+        if [[ "${sfs_dir}" != "${work_dir}" ]]; then
+            make_sfs "${sfs_dir}"
+        fi
+    done
 
-	msg "Making bootable image"
-	# Sanity checks
-	[[ ! -d "${work_dir}/iso" ]] && return 1
-	if [[ -f "${iso_dir}/${iso_file}" ]]; then
-		msg2 "Removing existing bootable image..."
-		rm -rf "${iso_dir}/${iso_file}"
-	fi
-	assemble_iso
-	msg "Done [Build ISO]"
-}
-
-# $1: file
-make_checksum(){
-	cd ${iso_dir}
-		msg "Creating [%s] sum ..." "${iso_checksum}"
-		local cs=$(${iso_checksum}sum $1)
-		msg2 "%s sum: %s" "${iso_checksum}" "${cs}"
-		echo "${cs}" > $1.${iso_checksum}
-		msg "Done [%s] sum" "${iso_checksum}"
-	cd ..
+    msg "Making bootable image"
+    # Sanity checks
+    [[ ! -d "${iso_root}" ]] && return 1
+    if [[ -f "${iso_dir}/${iso_file}" ]]; then
+        msg2 "Removing existing bootable image..."
+        rm -rf "${iso_dir}/${iso_file}"
+    fi
+    assemble_iso
+    msg "Done [Build ISO]"
 }
 
 gen_iso_fn(){
-	local vars=() name
-	vars+=("${iso_name}")
-	[[ -n ${profile} ]] && vars+=("${profile}")
-	[[ ${edition} == 'community' ]] && vars+=("${edition}")
-	[[ ${initsys} == 'openrc' ]] && vars+=("${initsys}")
-	vars+=("${dist_release}")
-	vars+=("${arch}")
-	for n in ${vars[@]};do
-		name=${name:-}${name:+-}${n}
-	done
-	echo $name
+    local vars=() name
+    vars+=("${iso_name}")
+    if ! ${chrootcfg};then
+        [[ -n ${profile} ]] && vars+=("${profile}")
+    fi
+    [[ ${initsys} == 'openrc' ]] && vars+=("${initsys}")
+    vars+=("${dist_release}")
+    vars+=("${target_branch}")
+    vars+=("${target_arch}")
+    for n in ${vars[@]};do
+        name=${name:-}${name:+-}${n}
+    done
+    echo $name
 }
 
-# Base installation (root-image)
+reset_pac_conf(){
+    local fs="$1"
+    info "Restoring [%s/etc/pacman.conf] ..." "$fs"
+    sed -e 's|^.*HoldPkg.*|HoldPkg      = pacman glibc manjaro-system|' \
+        -e "s|^.*#CheckSpace|CheckSpace|" \
+        -i "$fs/etc/pacman.conf"
+}
+
+# Base installation (rootfs)
 make_image_root() {
-	if [[ ! -e ${work_dir}/build.${FUNCNAME} ]]; then
-		msg "Prepare [Base installation] (root-image)"
-		local path="${work_dir}/root-image"
-		mkdir -p ${path}
+    if [[ ! -e ${work_dir}/rootfs.lock ]]; then
+        msg "Prepare [Base installation] (rootfs)"
+        local rootfs="${work_dir}/rootfs"
 
-		chroot_create "${path}" "${packages}"
+        prepare_dir "${rootfs}"
 
-		pacman -Qr "${path}" > "${path}/root-image-pkgs.txt"
-		copy_overlay "${profile_dir}/root-overlay" "${path}"
-		configure_root_image "${path}"
-		${is_custom_pac_conf} && clean_pacman_conf "${path}"
-		clean_up_image "${path}"
-		: > ${work_dir}/build.${FUNCNAME}
-		msg "Done [Base installation] (root-image)"
-	fi
+        create_chroot "${mkchroot_args[@]}" "${rootfs}" "${packages[@]}"
+
+        pacman -Qr "${rootfs}" > "${rootfs}/rootfs-pkgs.txt"
+        copy_overlay "${profile_dir}/root-overlay" "${rootfs}"
+
+        reset_pac_conf "${rootfs}"
+
+        configure_lsb "${rootfs}"
+
+        clean_up_image "${rootfs}"
+
+        msg "Done [Base installation] (rootfs)"
+    fi
 }
 
-make_image_custom() {
-	if [[ ! -e ${work_dir}/build.${FUNCNAME} ]]; then
-		msg "Prepare [Desktop installation] (%s-image)" "${profile}"
-		local path="${work_dir}/${profile}-image"
-		mkdir -p ${path}
+make_image_desktop() {
+    if [[ ! -e ${work_dir}/desktopfs.lock ]]; then
+        msg "Prepare [Desktop installation] (desktopfs)"
+        local desktopfs="${work_dir}/desktopfs"
 
-		mount_image "${path}"
+        prepare_dir "${desktopfs}"
 
-		chroot_create "${path}" "${packages}"
+        mount_fs "${desktopfs}" "${work_dir}"
 
-		pacman -Qr "${path}" > "${path}/${profile}-image-pkgs.txt"
-		cp "${path}/${profile}-image-pkgs.txt" ${iso_dir}/$(gen_iso_fn)-pkgs.txt
-		[[ -e ${profile_dir}/${profile}-overlay ]] && copy_overlay "${profile_dir}/${profile}-overlay" "${path}"
-		configure_custom_image "${path}"
-		${is_custom_pac_conf} && clean_pacman_conf "${path}"
+        create_chroot "${mkchroot_args[@]}" "${desktopfs}" "${packages[@]}"
 
-		umount_image
-		clean_up_image "${path}"
-		: > ${work_dir}/build.${FUNCNAME}
-		msg "Done [Desktop installation] (%s-image)" "${profile}"
-	fi
-}
+        pacman -Qr "${desktopfs}" > "${desktopfs}/desktopfs-pkgs.txt"
+        cp "${desktopfs}/desktopfs-pkgs.txt" ${iso_dir}/$(gen_iso_fn)-pkgs.txt
+        [[ -e ${profile_dir}/desktop-overlay ]] && copy_overlay "${profile_dir}/desktop-overlay" "${desktopfs}"
 
-mount_image_select(){
-	if [[ -f "${packages_custom}" ]]; then
-		mount_image_custom "$1"
-	else
-		mount_image "$1"
-	fi
+        reset_pac_conf "${desktopfs}"
+
+        umount_fs
+        clean_up_image "${desktopfs}"
+
+        msg "Done [Desktop installation] (desktopfs)"
+    fi
 }
 
 make_image_live() {
-	if [[ ! -e ${work_dir}/build.${FUNCNAME} ]]; then
-		msg "Prepare [Live installation] (live-image)"
-		local path="${work_dir}/live-image"
-		mkdir -p ${path}
+    if [[ ! -e ${work_dir}/livefs.lock ]]; then
+        msg "Prepare [Live installation] (livefs)"
+        local livefs="${work_dir}/livefs"
 
-		mount_image_select "${path}"
+        prepare_dir "${livefs}"
 
-		chroot_create "${path}" "${packages}"
+        mount_fs "${livefs}" "${work_dir}" "${desktop_list}"
 
-		pacman -Qr "${path}" > "${path}/live-image-pkgs.txt"
-		copy_overlay "${profile_dir}/live-overlay" "${path}"
-		configure_live_image "${path}"
-		${is_custom_pac_conf} && clean_pacman_conf "${path}"
+        create_chroot "${mkchroot_args[@]}" "${livefs}" "${packages[@]}"
 
-		umount_image
+        pacman -Qr "${livefs}" > "${livefs}/livefs-pkgs.txt"
+        copy_overlay "${profile_dir}/live-overlay" "${livefs}"
+        configure_live_image "${livefs}"
 
-		# Clean up GnuPG keys
-		rm -rf "${path}/etc/pacman.d/gnupg"
-		clean_up_image "${path}"
-		: > ${work_dir}/build.${FUNCNAME}
-		msg "Done [Live installation] (live-image)"
-	fi
+        reset_pac_conf "${livefs}"
+
+        umount_fs
+
+        clean_up_image "${livefs}"
+
+        msg "Done [Live installation] (livefs)"
+    fi
 }
 
 make_image_mhwd() {
-	if [[ ! -e ${work_dir}/build.${FUNCNAME} ]]; then
-		msg "Prepare [drivers repository] (mhwd-image)"
-		local path="${work_dir}/mhwd-image"
-		mkdir -p ${path}/opt/live/pkgs
+    if [[ ! -e ${work_dir}/mhwdfs.lock ]]; then
+        msg "Prepare [drivers repository] (mhwdfs)"
+        local mhwdfs="${work_dir}/mhwdfs"
 
-		mount_image_select "${path}"
+        prepare_dir "${mhwdfs}${mhwd_repo}"
 
-		${is_custom_pac_conf} && clean_pacman_conf "${path}"
+        mount_fs "${mhwdfs}" "${work_dir}" "${desktop_list}"
 
-		download_to_cache "${path}" "${packages}"
+        reset_pac_conf "${mhwdfs}"
 
-		copy_cache_mhwd "${work_dir}/mhwd-image"
+        copy_from_cache "${mhwdfs}" "${packages[@]}"
 
-		if [[ -n "${packages_cleanup}" ]]; then
-			for mhwd_clean in ${packages_cleanup}; do
-				rm ${path}/opt/live/pkgs/${mhwd_clean}
-			done
-		fi
-		cp ${DATADIR}/pacman-gfx.conf ${path}/opt/live
-		make_repo "${path}"
-		configure_mhwd_drivers "${path}"
+        if [[ -n "${packages_cleanup[@]}" ]]; then
+            for pkg in ${packages_cleanup[@]}; do
+                rm ${mhwdfs}${mhwd_repo}/${pkg}
+            done
+        fi
 
-		umount_image
-		clean_up_image "${path}"
-		: > ${work_dir}/build.${FUNCNAME}
-		msg "Done [drivers repository] (mhwd-image)"
-	fi
+        make_repo "${mhwdfs}"
+        configure_mhwd_drivers "${mhwdfs}"
+
+        umount_fs
+        clean_up_image "${mhwdfs}"
+        : > ${work_dir}/mhwdfs.lock
+        msg "Done [drivers repository] (mhwdfs)"
+    fi
 }
 
 make_image_boot() {
-	if [[ ! -e ${work_dir}/build.${FUNCNAME} ]]; then
-		msg "Prepare [%s/boot]" "${iso_name}"
-		local path_iso="${work_dir}/iso/${iso_name}/boot"
-		mkdir -p ${path_iso}/${arch}
-		cp ${work_dir}/root-image/boot/memtest86+/memtest.bin ${path_iso}/${arch}/memtest
-		cp ${work_dir}/root-image/boot/vmlinuz* ${path_iso}/${arch}/${iso_name}
-		local path="${work_dir}/boot-image"
-		mkdir -p ${path}
+    if [[ ! -e ${work_dir}/bootfs.lock ]]; then
+        msg "Prepare [/iso/boot]"
+        local boot="${iso_root}/boot"
 
-		mount_image_select "${path}"
+        prepare_dir "${boot}"
 
-		copy_initcpio "${profile_dir}" "${path}"
+        cp ${work_dir}/rootfs/boot/vmlinuz* ${boot}/vmlinuz-${target_arch}
 
-		gen_boot_image "${path}"
+        local bootfs="${work_dir}/bootfs"
 
-		mv ${path}/boot/${iso_name}.img ${path_iso}/${arch}/${iso_name}.img
-		[[ -f ${path}/boot/intel-ucode.img ]] && copy_ucode "${path}" "${path_iso}"
+        mount_fs "${bootfs}" "${work_dir}" "${desktop_list}"
 
-		umount_image
+        prepare_initcpio "${bootfs}"
+        prepare_initramfs "${bootfs}"
 
-		rm -R ${path}
-		: > ${work_dir}/build.${FUNCNAME}
-		msg "Done [%s/boot]" "${iso_name}"
-	fi
+        cp ${bootfs}/boot/initramfs.img ${boot}/initramfs-${target_arch}.img
+        prepare_boot_extras "${bootfs}" "${boot}"
+
+        umount_fs
+
+        rm -R ${bootfs}
+        : > ${work_dir}/bootfs.lock
+        msg "Done [/iso/boot]"
+    fi
 }
 
-# Prepare /EFI
-make_efi() {
-	if [[ ! -e ${work_dir}/build.${FUNCNAME} ]]; then
-		msg "Prepare [%s/boot/EFI]" "${iso_name}"
-		local path_iso="${work_dir}/iso"
-		local path_efi="${path_iso}/EFI"
-		mkdir -p ${path_efi}/boot
-		copy_efi_loaders "${work_dir}/root-image" "${path_efi}/boot"
-		mkdir -p ${path_iso}/loader/entries
-		write_loader_conf "${path_iso}/loader"
-		write_efi_shellv1_conf "${path_iso}/loader/entries"
-		write_efi_shellv2_conf "${path_iso}/loader/entries"
-		write_usb_conf "${path_iso}/loader/entries" "${path_iso}"
-		write_usb_nonfree_conf "${path_iso}/loader/entries" "${path_iso}"
-		copy_efi_shells "${path_efi}"
-		: > ${work_dir}/build.${FUNCNAME}
-		msg "Done [%s/boot/EFI]" "${iso_name}"
-	fi
+configure_grub(){
+    local conf="$1"
+    local default_args="misobasedir=${iso_name} misolabel=${iso_label}" boot_args=('quiet')
+    [[ ${initsys} == 'systemd' ]] && boot_args+=('systemd.show_status=1')
+
+    sed -e "s|@DIST_NAME@|${dist_name}|g" \
+        -e "s|@ARCH@|${target_arch}|g" \
+        -e "s|@DEFAULT_ARGS@|${default_args}|g" \
+        -e "s|@BOOT_ARGS@|${boot_args[*]}|g" \
+        -e "s|@PROFILE@|${profile}|g" \
+        -i $conf
 }
 
-# Prepare kernel.img::/EFI for "El Torito" EFI boot mode
-make_efiboot() {
-	if [[ ! -e ${work_dir}/build.${FUNCNAME} ]]; then
-		msg "Prepare [%s/iso/EFI]" "${iso_name}"
-		local path_iso="${work_dir}/iso"
-		mkdir -p ${path_iso}/EFI/miso
-		truncate -s ${efi_part_size} ${path_iso}/EFI/miso/${iso_name}.img
-		mkfs.vfat -n MISO_EFI ${path_iso}/EFI/miso/${iso_name}.img
-		mkdir -p ${work_dir}/efiboot
-		mount ${path_iso}/EFI/miso/${iso_name}.img ${work_dir}/efiboot
-		local path_efi="${work_dir}/efiboot/EFI"
-		mkdir -p ${path_efi}/miso
-		copy_boot_images "${path_iso}/${iso_name}/boot" "${path_efi}/miso"
-		mkdir -p ${path_efi}/boot
-		copy_efi_loaders "${work_dir}/root-image" "${path_efi}/boot"
-		local efi_loader=${work_dir}/efiboot/loader
-		mkdir -p ${efi_loader}/entries
-		write_loader_conf "${efi_loader}"
-		write_efi_shellv1_conf "${efi_loader}/entries"
-		write_efi_shellv2_conf "${efi_loader}/entries"
-		write_dvd_conf "${efi_loader}/entries" "${path_iso}"
-		write_dvd_nonfree_conf "${efi_loader}/entries" "${path_iso}"
-		copy_efi_shells "${path_efi}"
-		umount ${work_dir}/efiboot
-		: > ${work_dir}/build.${FUNCNAME}
-		msg "Done [%s/iso/EFI]" "${iso_name}"
-	fi
+configure_grub_theme(){
+    local conf="$1"
+    sed -e "s|@ISO_NAME@|${iso_name}|" -i "$conf"
 }
 
-# Prepare /isolinux
-make_isolinux() {
-	if [[ ! -e ${work_dir}/build.${FUNCNAME} ]]; then
-		msg "Prepare [%s/iso/isolinux]" "${iso_name}"
-		local path=${work_dir}/iso/isolinux
-		mkdir -p ${path}
-		copy_overlay "${DATADIR}/isolinux" "${path}"
-		write_isolinux_cfg "${path}" "${work_dir}/iso"
-		write_isolinux_msg "${path}"
-		if [[ -e ${profile_dir}/isolinux-overlay ]]; then
-			copy_overlay "${profile_dir}/isolinux-overlay" "${path}"
-			update_isolinux_cfg "${profile_dir}/isolinux-overlay" "${path}"
-			update_isolinux_msg "${profile_dir}/isolinux-overlay" "${path}"
-		fi
-		copy_isolinux_bin "${work_dir}/root-image" "${path}"
-		: > ${work_dir}/build.${FUNCNAME}
-		msg "Done [%s/iso/isolinux]" "${iso_name}"
-	fi
-}
+make_grub(){
+    if [[ ! -e ${work_dir}/grub.lock ]]; then
+        msg "Prepare [/iso/boot/grub]"
 
-make_isomounts() {
-	if [[ ! -e ${work_dir}/build.${FUNCNAME} ]]; then
-		msg "Prepare [isomounts]"
-		write_isomounts "${work_dir}/iso/${iso_name}"
-		: > ${work_dir}/build.${FUNCNAME}
-		msg "Done [isomounts]"
-	fi
-}
+        prepare_grub "${work_dir}/rootfs" "${work_dir}/livefs" "${iso_root}"
 
-get_shared_list(){
-	local path
-	case ${edition} in
-		sonar|netrunner) path=${run_dir}/shared/${edition}/Packages-Desktop ;;
-		*) path=${run_dir}/shared/manjaro/Packages-Desktop ;;
-	esac
-	echo $path
-}
+        configure_grub "${iso_root}/boot/grub/kernels.cfg"
+        configure_grub_theme "${iso_root}/boot/grub/variable.cfg"
 
-# $1: file name
-load_pkgs(){
-	info "Loading Packages: [%s] ..." "${1##*/}"
-
-	local _init _init_rm _multi _nonfree_default _nonfree_multi _arch _arch_rm _nonfree_i686 _nonfree_x86_64
-
-	if [[ ${initsys} == 'openrc' ]];then
-		_init="s|>openrc||g"
-		_init_rm="s|>systemd.*||g"
-	else
-		_init="s|>systemd||g"
-		_init_rm="s|>openrc.*||g"
-	fi
-	if [[ "${arch}" == "i686" ]]; then
-		_arch="s|>i686||g"
-		_arch_rm="s|>x86_64.*||g"
-		_multi="s|>multilib.*||g"
-		_nonfree_multi="s|>nonfree_multilib.*||g"
-		_nonfree_x86_64="s|>nonfree_x86_64.*||g"
-		if ${nonfree_xorg};then
-			_nonfree_default="s|>nonfree_default||g"
-			_nonfree_i686="s|>nonfree_i686||g"
-
-		else
-			_nonfree_default="s|>nonfree_default.*||g"
-			_nonfree_i686="s|>nonfree_i686.*||g"
-		fi
-	else
-		_arch="s|>x86_64||g"
-		_arch_rm="s|>i686.*||g"
-		_nonfree_i686="s|>nonfree_i686.*||g"
-		if ${multilib};then
-			_multi="s|>multilib||g"
-			if ${nonfree_xorg};then
-				_nonfree_default="s|>nonfree_default||g"
-				_nonfree_x86_64="s|>nonfree_x86_64||g"
-				_nonfree_multi="s|>nonfree_multilib||g"
-			else
-				_nonfree_default="s|>nonfree_default.*||g"
-				_nonfree_multi="s|>nonfree_multilib.*||g"
-				_nonfree_x86_64="s|>nonfree_x86_64.*||g"
-			fi
-		else
-			_multi="s|>multilib.*||g"
-			if ${nonfree_xorg};then
-				_nonfree_default="s|>nonfree_default||g"
-				_nonfree_x86_64="s|>nonfree_x86_64||g"
-				_nonfree_multi="s|>nonfree_multilib.*||g"
-			else
-				_nonfree_default="s|>nonfree_default.*||g"
-				_nonfree_x86_64="s|>nonfree_x86_64.*||g"
-				_nonfree_multi="s|>nonfree_multilib.*||g"
-			fi
-		fi
-	fi
-	local _blacklist="s|>blacklist.*||g" \
-		_kernel="s|KERNEL|$kernel|g" \
-		_used_kernel=${kernel:5:2} \
-		_space="s| ||g" \
-		_clean=':a;N;$!ba;s/\n/ /g' \
-		_com_rm="s|#.*||g" \
-		_purge="s|>cleanup.*||g" \
-		_purge_rm="s|>cleanup||g"
-
-	local list
-
-	if [[ $1 == "${packages_custom}" ]];then
-		sort -u $(get_shared_list) ${packages_custom} > ${work_dir}/pkgs_merged
-		list=${work_dir}/pkgs_merged
-	else
-		list=$1
-	fi
-
-	packages=$(sed "$_com_rm" "$list" \
-			| sed "$_space" \
-			| sed "$_blacklist" \
-			| sed "$_purge" \
-			| sed "$_init" \
-			| sed "$_init_rm" \
-			| sed "$_arch" \
-			| sed "$_arch_rm" \
-			| sed "$_nonfree_default" \
-			| sed "$_multi" \
-			| sed "$_nonfree_i686" \
-			| sed "$_nonfree_x86_64" \
-			| sed "$_nonfree_multi" \
-			| sed "$_kernel" \
-			| sed "$_clean")
-
-	if [[ $1 == "${packages_mhwd}" ]]; then
-
-		local  _used_kernel=${kernel:5:2}
-                [[ ${_used_kernel} < "42" ]] && local _amd="s|xf86-video-amdgpu||g"
-
-		packages_cleanup=$(sed "$_com_rm" "$1" \
-			| grep cleanup \
-			| sed "$_purge_rm" \
-			| sed "$_kernel" \
-			| sed "$_clean" \
-			| sed "$_amd")
-	fi
-}
-
-check_custom_pacman_conf(){
-	if [[ -f ${profile_dir}/pacman-${pacman_conf_arch}.conf ]]; then
-		pacman_conf="${profile_dir}/pacman-${pacman_conf_arch}.conf"
-		is_custom_pac_conf=true
-	else
-		pacman_conf="${DATADIR}/pacman-${pacman_conf_arch}.conf"
-		is_custom_pac_conf=false
-	fi
-}
-
-check_profile(){
-	local keyfiles=("${profile_dir}/mkinitcpio.conf"
-			"${profile_dir}/Packages-Root"
-			"${profile_dir}/Packages-Live")
-
-	local keydirs=("${profile_dir}/root-overlay"
-			"${profile_dir}/live-overlay")
-
-	local has_keyfiles=false has_keydirs=false
-	for f in ${keyfiles[@]}; do
-		if [[ -f $f ]];then
-			has_keyfiles=true
-		else
-			has_keyfiles=false
-			break
-		fi
-	done
-	for d in ${keydirs[@]}; do
-		if [[ -d $d ]];then
-			has_keydirs=true
-		else
-			has_keydirs=false
-			break
-		fi
-	done
-	if ! ${has_keyfiles} && ! ${has_keydirs};then
-		die "Profile [%s] sanity check failed!" "${profile_dir}"
-	fi
-
-	local files=$(ls ${profile_dir}/Packages*)
-	for f in ${files[@]};do
-		case $f in
-			${profile_dir}/Packages-Root|${profile_dir}/Packages-Live|${profile_dir}/Packages-Mhwd) continue ;;
-			*) packages_custom="$f" ;;
-		esac
-	done
-
-	[[ -f "${profile_dir}/Packages-Mhwd" ]] && packages_mhwd=${profile_dir}/Packages-Mhwd
+        : > ${work_dir}/grub.lock
+        msg "Done [/iso/boot/grub]"
+    fi
 }
 
 check_requirements(){
-	[[ -f ${run_dir}/.buildiso ]] || die "%s is not a valid iso profiles directory!" "${run_dir}"
-	if ! $(is_valid_arch_iso ${arch});then
-		die "%s is not a valid arch!" "${arch}"
-	fi
-	if ! $(is_valid_branch ${branch});then
-		die "%s is not a valid branch!" "${branch}"
-	fi
+    prepare_dir "${log_dir}"
 
-	if ! is_valid_init "${initsys}";then
-		die "%s is not a valid init system!" "${initsys}"
-	fi
+    eval_build_list "${list_dir_iso}" "${build_list_iso}"
 
-	local iso_kernel=${kernel:5:1} host_kernel=$(uname -r)
+    [[ -f ${run_dir}/repo_info ]] || die "%s is not a valid iso profiles directory!" "${run_dir}"
 
-	if [[ ${iso_kernel} < "4" ]] || [[ ${host_kernel%%*.} < "4" ]];then
-		use_overlayfs='false'
-	fi
+    local iso_kernel=${kernel:5:1} host_kernel=$(uname -r)
+    if [[ ${iso_kernel} < "4" ]] \
+    || [[ ${host_kernel%%*.} < "4" ]];then
+        die "The host and iso kernels must be version>=4.0!"
+    fi
 
-	if ${use_overlayfs};then
-		iso_fs="overlayfs"
-	else
-		iso_fs="aufs"
-	fi
-}
-
-sign_iso(){
-	su ${OWNER} -c "signfile ${iso_dir}/$1"
+    for sig in TERM HUP QUIT; do
+        trap "trap_exit $sig \"$(gettext "%s signal caught. Exiting...")\" \"$sig\"" "$sig"
+    done
+    trap 'trap_exit INT "$(gettext "Aborted by user! Exiting...")"' INT
+    trap 'trap_exit USR1 "$(gettext "An unknown error has occurred. Exiting...")"' ERR
 }
 
 compress_images(){
-	local timer=$(get_timer)
-	run_safe "make_iso"
-	make_checksum "${iso_file}"
-	chown -R "${OWNER}:users" "${iso_dir}"
-	${sign} && sign_iso "${iso_file}"
-	show_elapsed_time "${FUNCNAME}" "${timer}"
+    local timer=$(get_timer)
+    run_safe "make_iso"
+    user_own "${iso_dir}" "-R"
+    show_elapsed_time "${FUNCNAME}" "${timer}"
 }
 
 prepare_images(){
-	local timer=$(get_timer)
-	load_pkgs "${profile_dir}/Packages-Root"
-	run_safe "make_image_root"
-	if [[ -f "${packages_custom}" ]] ; then
-		load_pkgs "${packages_custom}"
-		run_safe "make_image_custom"
-	fi
-	if [[ -f ${profile_dir}/Packages-Live ]]; then
-		load_pkgs "${profile_dir}/Packages-Live"
-		run_safe "make_image_live"
-	fi
-	if [[ -f ${packages_mhwd} ]] ; then
-		load_pkgs "${packages_mhwd}"
-		run_safe "make_image_mhwd"
-	fi
-	run_safe "make_image_boot"
-	if [[ "${arch}" == "x86_64" ]]; then
-		run_safe "make_efi"
-		run_safe "make_efiboot"
-	fi
-	run_safe "make_isolinux"
-	run_safe "make_isomounts"
-	show_elapsed_time "${FUNCNAME}" "${timer}"
+    local timer=$(get_timer)
+    load_pkgs "${profile_dir}/Packages-Root"
+    run_safe "make_image_root"
+    if [[ -f "${desktop_list}" ]] ; then
+        load_pkgs "${desktop_list}"
+        run_safe "make_image_desktop"
+    fi
+    if [[ -f ${profile_dir}/Packages-Live ]]; then
+        load_pkgs "${profile_dir}/Packages-Live"
+        run_safe "make_image_live"
+    fi
+    if [[ -f ${mhwd_list} ]] ; then
+        load_pkgs "${mhwd_list}"
+        run_safe "make_image_mhwd"
+    fi
+    run_safe "make_image_boot"
+    run_safe "make_grub"
+
+    show_elapsed_time "${FUNCNAME}" "${timer}"
+}
+
+archive_logs(){
+    local name=$(gen_iso_fn) ext=log.tar.xz src=${tmp_dir}/archives.list
+    find ${log_dir} -maxdepth 1 -name "$name*.log" -printf "%f\n" > $src
+    msg2 "Archiving log files [%s] ..." "$name.$ext"
+    tar -cJf ${log_dir}/$name.$ext -C ${log_dir} -T $src
+    msg2 "Cleaning log files ..."
+    find ${log_dir} -maxdepth 1 -name "$name*.log" -delete
 }
 
 make_profile(){
-	msg "Start building [%s]" "${profile}"
-	import ${LIBDIR}/util-iso-${iso_fs}.sh
-	${clean_first} && chroot_clean "${work_dir}"
-	if ${iso_only}; then
-		[[ ! -d ${work_dir} ]] && die "Create images: buildiso -p %s -x" "${profile}"
-		compress_images
-		exit 1
-	fi
-	if ${images_only}; then
-		prepare_images
-		warning "Continue compress: buildiso -p %s -zc ..." "${profile}"
-		exit 1
-	else
-		prepare_images
-		compress_images
-	fi
-	reset_profile
-	msg "Finished building [%s]" "${profile}"
-	show_elapsed_time "${FUNCNAME}" "${timer_start}"
+    msg "Start building [%s]" "${profile}"
+    if ${clean_first};then
+        chroot_clean "${chroots_iso}/${profile}/${target_arch}"
+
+        local unused_arch=''
+        case ${target_arch} in
+            i686) unused_arch='x86_64' ;;
+            x86_64) unused_arch='i686' ;;
+        esac
+        if [[ -d "${chroots_iso}/${profile}/${unused_arch}" ]];then
+            chroot_clean "${chroots_iso}/${profile}/${unused_arch}"
+        fi
+        clean_iso_root "${iso_root}"
+    fi
+
+    if ${iso_only}; then
+        [[ ! -d ${work_dir} ]] && die "Create images: buildiso -p %s -x" "${profile}"
+        compress_images
+        ${verbose} && archive_logs
+        exit 1
+    fi
+    if ${images_only}; then
+        prepare_images
+        ${verbose} && archive_logs
+        warning "Continue compress: buildiso -p %s -zc ..." "${profile}"
+        exit 1
+    else
+        prepare_images
+        compress_images
+        ${verbose} && archive_logs
+    fi
+    reset_profile
+    msg "Finished building [%s]" "${profile}"
+    show_elapsed_time "${FUNCNAME}" "${timer_start}"
 }
 
-load_profile(){
-	conf="${profile_dir}/profile.conf"
-	info "Profile: [%s]" "${profile}"
-
-	load_profile_config "$conf"
-
-	check_custom_pacman_conf
-
-	iso_file=$(gen_iso_fn).iso
-
-	mkchroot_args+=(-C ${pacman_conf} -S ${mirrors_conf} -B "${build_mirror}/${branch}" -K)
-	work_dir=${chroots_iso}/${profile}/${arch}
-
-	iso_dir="${cache_dir_iso}/${edition}/${profile}/${dist_release}/${arch}"
-
-	prepare_dir "${iso_dir}"
-	prepare_dir "${log_dir}"
-}
-
-prepare_profile(){
-	profile=$1
-	edition=$(get_edition ${profile})
-	profile_dir=${run_dir}/${edition}/${profile}
-	check_profile
-	load_profile
+get_pacman_conf(){
+    local user_conf=${profile_dir}/user-repos.conf pac_arch='default' conf
+    [[ "${target_arch}" == 'x86_64' ]] && pac_arch='multilib'
+    if [[ -f ${user_conf} ]];then
+        info "detected: %s" "user-repos.conf"
+        check_user_repos_conf "${user_conf}"
+        conf=${tmp_dir}/custom-pacman.conf
+        cat ${DATADIR}/pacman-$pac_arch.conf ${user_conf} > "$conf"
+    else
+        conf="${DATADIR}/pacman-$pac_arch.conf"
+    fi
+    echo "$conf"
 }
 
 build(){
-	prepare_profile "$1"
-	make_profile
+    local prof="$1"
+    prepare_build "$prof"
+    make_profile
 }

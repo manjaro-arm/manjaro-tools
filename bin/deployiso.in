@@ -20,114 +20,96 @@ import ${LIBDIR}/util.sh
 import ${LIBDIR}/util-publish.sh
 
 show_profile(){
-	info "Iso: [$1]"
-	prepare_transfer "$1"
-	msg2 "src_dir: ${src_dir}"
-	msg2 "remote_dir: ${remote_dir}"
+    prepare_transfer "$1"
+    info "Profile: [$1]"
+    msg2 "src_dir: ${src_dir}"
+    msg2 "target_dir: ${target_dir}"
 }
 
 display_settings(){
-	show_version
-	show_config
+    show_version
+    show_config
 
-	msg "PROFILE:"
-	msg2 "sets_dir_iso: %s" "${sets_dir_iso}"
-	msg2 "buildsets: %s" "$(list_sets ${sets_dir_iso})"
-	msg2 "buildset_iso: %s" "${buildset_iso}"
-	msg2 "is_buildset: %s" "${is_buildset}"
+#     msg "PROFILE:"
+#     msg2 "build_lists: %s" "$(show_build_lists ${list_dir_iso})"
+#     msg2 "build_list_iso: %s" "${build_list_iso}"
+    msg2 "is_build_list: %s" "${is_build_list}"
 
-	msg "OPTIONS:"
-	msg2 "arch: %s" "${arch}"
-	msg2 "initsys: %s" "${initsys}"
-	msg2 "limit: %s kB/s" "${limit}"
+    msg "OPTIONS:"
+    msg2 "limit: %s kB/s" "${limit}"
+    msg2 "dist_release: %s" "${dist_release}"
 
-	msg "ARGS:"
-	msg2 "update: %s" "${update}"
-	msg2 "remote_create: %s" "${remote_create}"
-	msg2 "torrent_create: %s" "${torrent_create}"
-	msg2 "verbose: %s" "${verbose}"
-	msg2 "rsync_args: %s" "${rsync_args[*]}"
-	${torrent_create} && msg2 "mktorrent_args: %s" "${mktorrent_args[*]}"
+    msg "ARGS:"
+    msg2 "update: %s" "${update}"
+    msg2 "verbose: %s" "${verbose}"
+    msg2 "torrent: %s" "${torrent}"
 
-	msg "HOST:"
-	msg2 "dist_release: %s" "${dist_release}"
+    if ${torrent};then
+        msg2 "tracker_url: %s" "${tracker_url}"
+        msg2 "piece_size: %s" "${piece_size}"
+        msg2 "iso_mirrors: %s" "${iso_mirrors[*]}"
+        msg2 "torrent_meta: %s" "${torrent_meta}"
+    fi
 
-	msg "REMOTE:"
-	msg2 "remote_url: %s" "${remote_url}"
-	msg2 "remote_project: %s" "${remote_project}"
-	msg2 "remote_target: %s" "${remote_target}"
-	msg2 "remote_user: %s" "${remote_user}"
-	if ${torrent_create};then
-		msg2 "tracker_url: %s" "${tracker_url}"
-		msg2 "piece_size: %s" "${piece_size}"
-	fi
-	msg "UPLOAD QUEUE:"
-	run show_profile "${buildset_iso}"
+    msg "REMOTE:"
+    msg2 "account: %s" "${account}"
+    msg2 "host: %s" "${host}"
+    msg2 "project: %s" "${project}"
+
+    msg "UPLOAD QUEUE:"
+    run show_profile "${build_list_iso}"
 }
 
 load_user_info
 
-load_config "${USERCONFDIR}/manjaro-tools.conf"
-load_config "${SYSCONFDIR}/manjaro-tools.conf"
+load_config "${MT_USERCONFDIR}/manjaro-tools.conf" || load_config "${SYSCONFDIR}/manjaro-tools.conf"
 
 run_dir=${cache_dir_iso}
 
 pretend=false
-remote_create=false
 update=false
 verbose=false
-torrent_create=false
+torrent=false
 
 rsync_args=(-aP --progress -e ssh)
-mktorrent_args=(-v -p)
 
 usage() {
-	echo "Usage: ${0##*/} [options]"
-	echo "    -p                 Source folder to upload [default:${buildset_iso}]"
-	echo "    -a                 Arch to upload [default:${arch}]"
-	echo "    -i                 The iso's init system [default:${initsys}]"
-	echo "    -l                 Limit bandwidth in kB/s [default:${limit}]"
-	echo '    -c                 Create new remote edition_type with subtree'
-	echo '    -t                 Create a torrent from source folder'
-	echo '    -u                 Update remote iso'
-	echo '    -q                 Query settings and pretend upload'
-	echo '    -v                 Verbose output'
-	echo '    -h                 This help'
-	echo ''
-	echo ''
-	exit $1
+    echo "Usage: ${0##*/} [options]"
+    echo "    -p                 Source folder to upload [default:${build_list_iso}]"
+    echo "    -l                 Limit bandwidth in kB/s [default:${limit}]"
+    echo '    -u                 Update remote directory'
+    echo '    -t                 Create iso torrent'
+    echo '    -q                 Query settings and pretend upload'
+    echo '    -v                 Verbose output'
+    echo '    -h                 This help'
+    echo ''
+    echo ''
+    exit $1
 }
 
-opts='p:a:l:i:ctuvqh'
+opts='p:l:uvtqh'
 
 while getopts "${opts}" arg; do
-	case "${arg}" in
-                p) buildset_iso="$OPTARG" ;;
-                a) arch="$OPTARG" ;;
-                i) initsys="$OPTARG" ;;
+    case "${arg}" in
+                p) build_list_iso="$OPTARG" ;;
                 l) limit="$OPTARG" ;;
-                c) remote_create=true ;;
-                t) torrent_create=true ;;
                 u) update=true; rsync_args+=(-u) ;;
+                t) torrent=true ;;
                 v) verbose=true; rsync_args+=(-v --stats) ;;
-		q) pretend=true; rsync_args+=(-n) ;;
-		h|?) usage 0 ;;
-		*) echo "invalid argument '${arg}'"; usage 1 ;;
-	esac
+        q) pretend=true; rsync_args+=(-n) ;;
+        h|?) usage 0 ;;
+        *) echo "invalid argument '${arg}'"; usage 1 ;;
+    esac
 done
 
 shift $(($OPTIND - 1))
 
 timer_start=$(get_timer)
 
-eval_buildset "${sets_dir_iso}" "${buildset_iso}"
+eval_build_list "${list_dir_iso}" "${build_list_iso}"
 
 rsync_args+=(--bwlimit=${limit})
-mktorrent_args+=(-l ${piece_size} -a ${tracker_url})
-
-sf_url=${remote_user},${remote_project}@frs.${remote_url}:${remote_target}/${remote_project}
-shell_url=${remote_user},${remote_project}@shell.${remote_url}
 
 ${pretend} && display_settings && exit 1
 
-run sync_dir "${buildset_iso}"
+run sync_dir "${build_list_iso}"

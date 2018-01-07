@@ -1,240 +1,233 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
-  This file is part of manjaro-tools.
+This file is part of manjaro-tools.
 
-  Copyright 2015 Manjaro Developers
+Copyright 2015 Manjaro Developers
 
-  manjaro-tools is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
+manjaro-tools is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or
+(at your option) any later version.
 
-  manjaro-tools is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
+manjaro-tools is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
 
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU Lesser General Public License
+along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="profile.conf" xmlns:xi="http://www.w3.org/2001/XInclude">
 
-  <refentryinfo>
-		<title>profile.conf-+</title>
-		<productname>manjaro-tools</productname>
+<refentryinfo>
+        <title>profile.conf-+</title>
+        <productname>manjaro-tools</productname>
 
-		<authorgroup>
-			<author>
-				<contrib></contrib>
-				<firstname></firstname>
-				<surname></surname>
-				<email></email>
-			</author>
-		</authorgroup>
-	</refentryinfo>
+        <authorgroup>
+            <author>
+                <contrib></contrib>
+                <firstname></firstname>
+                <surname></surname>
+                <email></email>
+            </author>
+        </authorgroup>
+    </refentryinfo>
 
-	<refmeta>
-		<refentrytitle>profile.conf</refentrytitle>
-		<manvolnum>5</manvolnum>
-	</refmeta>
+    <refmeta>
+        <refentrytitle>profile.conf</refentrytitle>
+        <manvolnum>5</manvolnum>
+    </refmeta>
 
-	<refnamediv>
-		<refname>profile.conf</refname>
-		<refpurpose>configuration file for the individual profiles </refpurpose>
-	</refnamediv>
+    <refnamediv>
+        <refname>profile.conf</refname>
+        <refpurpose>configuration file for the individual profiles </refpurpose>
+    </refnamediv>
 
-	<refsynopsisdiv>
-		<para><filename>profile.conf</filename></para>
-	</refsynopsisdiv>
+    <refsynopsisdiv>
+        <para><filename>profile.conf</filename></para>
+    </refsynopsisdiv>
 
-	<refsect1>
-		<title>Description</title>
+    <refsect1>
+        <title>Description</title>
 
-		<para>profile.conf is a configuration file used to modify how the ISO will be built. </para>
+        <para>profile.conf is a configuration file used to modify how the ISO will be built. </para>
 
-		<para>By default all the options in the file are commented, with a value equal to the
-		default value. To change it just uncomment and put the desired value.</para>
+        <para>By default all the options in the file are commented, with a value equal to the
+        default value. To change it just uncomment and put the desired value.</para>
 
-	</refsect1>
+    </refsect1>
 
-	<refsect1>
-		<title>Options</title>
+    <refsect1>
+        <title>Options</title>
 
-		<para>The following options are understood:</para>
+        <para>The following options are understood:</para>
 
-		<variablelist>
+        <variablelist>
 
-			<varlistentry>
-				<term><varname>displaymanager=</varname></term>
+            <varlistentry>
+                <term><varname>displaymanager=</varname></term>
 
-				<listitem><para>Takes a value of
-				<option>lightdm</option>,
-				<option>sddm</option>,
-				<option>gdm</option>,
-				<option>mdm</option>,
-				<option>lxdm</option>. Defaults to "none" value,
-				which won't configure any display manager.
-				</para></listitem>
-			</varlistentry>
+                <listitem><para>Takes a value of
+                <option>lightdm</option>,
+                <option>sddm</option>,
+                <option>gdm</option>,
+                <option>mdm</option>,
+                <option>lxdm</option>. Defaults to "none" value,
+                which won't configure any display manager.
+                </para></listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>autologin=</varname></term>
+            <varlistentry>
+                <term><varname>autologin=</varname></term>
 
-				<listitem><para>Accepts
-					<option>true</option> (the default)
-					<option>false</option>.</para>
-				</listitem>
-			</varlistentry>
+                <listitem><para>Accepts
+                    <option>true</option> (the default)
+                    <option>false</option>.</para>
+                </listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>default_desktop_executable=</varname></term>
-				<term><varname>default_desktop_file=</varname></term>
+            <varlistentry>
+                <term><varname>netinstall=</varname></term>
 
-				<listitem><para>Executable and desktop file used to set witch
-				desktop environment the display manager will run by default.
-				default_desktop_executable= defines a binary in /usr/bin and
-				default_desktop_file a .desktop file in /usr/share/xsessions,
-				skipping the .desktop part.
-				<screen>
-				default_desktop_executable=startxfce4
-				default_desktop_file=xfce
-				</screen>
-				If one or both values are not set or "none" (the default) buildiso
-				will try to autodetect the desktop environment.
-				</para>
-				<para>
-				Incomplete list of possible values:
-				</para>
-				<screen>
-				Desktop         Desktop executable      Desktop file
-				--------------------------------------------------------
-				Budgie          budgie-session          budgie-session
-				Cinnamon        cinnamon-session        cinnamon-session
-				Enlightenment   enlightenment_start     enlightenment
-				Gnome           gnome-session           gnome
-				i3              i3                      i3
-				KDE Plasma 4    startkde                kde-plasma
-				KDE Plasma 5    startkde                plasma
-				LXDE            lxsession               LXDE
-				LXDE            startlxde               LXDE
-				LXQt            lxqt-session            lxqt
-				Mate            mate-session            mate
-				Openbox         openbox-session         openbox
-				Pantheon        pantheon-session        pantheon
-				PekWM           pekwm                   pekwm
-				Xfce            startxfce4              xfce
-				</screen>
-				</listitem>
-			</varlistentry>
+                <listitem><para>Accepts
+                    <option>false</option> (the default)
+                    <option>true</option>.</para>
+                </listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>efi_boot_loader=</varname></term>
+            <varlistentry>
+                <term><varname>chrootcfg=</varname></term>
 
-				<listitem><para>Takes grub or gummibot. Configures
-				calamares to use that bootloader.
-				</para></listitem>
-			</varlistentry>
+                <listitem><para>Accepts
+                    <option>false</option> (the default)
+                    <option>true</option>.</para>
+                </listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>efi_part_size=</varname></term>
+            <varlistentry>
+                <term><varname>extra=</varname></term>
 
-				<listitem><para>Size in MiB of the fat partition where
-				the kernel is. This is useful if you add extra hooks
-				in the mkinitcpio.conf and it's to big to fit in the
-				partition. The default is "32M".
-				</para></listitem>
-			</varlistentry>
+                <listitem><para>Accepts
+                        <option>false</option> (the default)
+                        <option>false</option>.</para>
+                </listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>plymouth_theme=</varname></term>
+            <varlistentry>
+                <term><varname>multilib=</varname></term>
 
-				<listitem><para>Takes the name of the plymouth
-				theme. It should be the directory of a valid
-				plymouth theme installed in /usr/share/plymouth/themes/
-				</para></listitem>
-			</varlistentry>
+                <listitem><para>Accepts
+                        <option>true</option> (the default)
+                        <option>false</option>.</para>
+                </listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>start_systemd=</varname></term>
+            <varlistentry>
+                <term><varname>geoip=</varname></term>
 
-				<listitem><para>Array of services that will be
-				enabled in systemd systems. It has to match
-				the names of .service systemd files.
-				</para></listitem>
-			</varlistentry>
+                <listitem><para>Accepts
+                    <option>true</option> (the default)
+                    <option>false</option>.</para>
+                </listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>start_openrc=</varname></term>
+            <varlistentry>
+                <term><varname>efi_boot_loader=</varname></term>
 
-				<listitem><para>Array of services that will be
-				enabled in openrc systems.
-				</para></listitem>
-			</varlistentry>
+                <listitem><para>Takes grub or gummibot. Configures
+                calamares to use that bootloader.
+                </para></listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>hostname=</varname></term>
+            <varlistentry>
+                <term><varname>enable_systemd=</varname></term>
 
-				<listitem><para>Hostname for the ISO.
-				</para></listitem>
-			</varlistentry>
+                <listitem><para>Array of services that will be
+                enabled in systemd systems. It has to match
+                the names of .service systemd files.
+                </para></listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>username=</varname></term>
+            <varlistentry>
+                <term><varname>enable_openrc=</varname></term>
 
-				<listitem><para>Username of the default user
-				that will be created in the live-cd.
-				</para></listitem>
-			</varlistentry>
+                <listitem><para>Array of services that will be
+                enabled in openrc systems.
+                </para></listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>password=</varname></term>
+            <varlistentry>
+                <term><varname>hostname=</varname></term>
 
-				<listitem><para>Password of the default user
-				that will be created in the live-cd.
-				</para></listitem>
-			</varlistentry>
+                <listitem><para>Hostname for the ISO.
+                </para></listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>addgroups=</varname></term>
+            <varlistentry>
+                <term><varname>username=</varname></term>
 
-				<listitem><para>Default groups of the default user
-				in the live-cd and the user created while installing
-				the iso using calamares.
-				</para></listitem>
-			</varlistentry>
+                <listitem><para>Username of the default user
+                that will be created in the live-cd.
+                </para></listitem>
+            </varlistentry>
 
-			<varlistentry>
-				<term><varname>start_systemd_live=</varname></term>
+            <varlistentry>
+                <term><varname>password=</varname></term>
 
-				<listitem><para>Array of services that will be
-				enabled in the systemd live-cd. It has to match
-				the names of .service systemd files.
-				</para></listitem>
-			</varlistentry>
+                <listitem><para>Password of the default user
+                that will be created in the live-cd.
+                </para></listitem>
+            </varlistentry>
 
-			<varlistentry>
-			<term><varname>start_openrc_live=</varname></term>
+            <varlistentry>
+                <term><varname>login_shell=</varname></term>
 
-			<listitem><para>Array of services that will be
-			enabled in the openrc live-cd.
-			</para></listitem>
-		</varlistentry>
+                <listitem><para>Accepts any login shell for the user, eg. /bin/zsh.
+                login_shell defaults to /bin/bash
+                </para></listitem>
+            </varlistentry>
 
-		</variablelist>
+            <varlistentry>
+                <term><varname>addgroups=</varname></term>
 
-	</refsect1>
+                <listitem><para>Default groups of the default user
+                in the live-cd and the user created while installing
+                the iso using calamares.
+                </para></listitem>
+            </varlistentry>
 
-	<refsect1>
-		<title>See Also</title>
-		<para>
-			<citerefentry project='manjaro-tools'><refentrytitle>manjaro-tools.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-			<citerefentry project='manjaro-tools'><refentrytitle>buildiso</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-		</para>
-	</refsect1>
+            <varlistentry>
+                <term><varname>enable_systemd_live=</varname></term>
+
+                <listitem><para>Array of services that will be
+                enabled in the systemd live-cd. It has to match
+                the names of .service systemd files.
+                </para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+            <term><varname>enable_openrc_live=</varname></term>
+
+            <listitem><para>Array of services that will be
+            enabled in the openrc live-cd.
+            </para></listitem>
+        </varlistentry>
+
+        </variablelist>
+
+    </refsect1>
+
+    <refsect1>
+        <title>See Also</title>
+        <para>
+            <citerefentry project='manjaro-tools'><refentrytitle>manjaro-tools.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+            <citerefentry project='manjaro-tools'><refentrytitle>buildiso</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        </para>
+    </refsect1>
 
 </refentry>
 

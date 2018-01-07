@@ -1,11 +1,9 @@
 manjaro-tools
 =============
 
-Manjaro-tools-0.11.0
-
 User manual
 
-###1. manjaro-tools.conf
+### 1. manjaro-tools.conf
 
 manjaro-tools.conf is the central configuration file for manjaro-tools.
 By default, the config is installed in
@@ -33,16 +31,18 @@ By default it is commented and shows just initialization values done in code.
 Tools configuration is done in manjaro-tools.conf or by args.
 Specifying args will override manjaro-tools.conf settings.
 
-User sets can be placed in
+User build lists(eg 'my-super-build.list') can be placed in
 
 ~~~
-$HOME/.config/manjaro-tools/{pkg,iso}.d
+$HOME/.config/manjaro-tools/pkg.list.d
+$HOME/.config/manjaro-tools/iso.list.d
 ~~~
 
 overriding
 
 ~~~
-/etc/manjaro-tools/{pkg,iso}.d
+/etc/manjaro-tools/pkg.list.d
+/etc/manjaro-tools/iso.list.d
 ~~~
 
 
@@ -51,20 +51,17 @@ overriding
 ################ manjaro-tools.conf ##################
 ######################################################
 
-# default branch
-# branch=stable
+# default target branch
+# target_branch=stable
 
-# default arch: auto detect
-# arch=$(uname -m)
+# default taget arch: auto detect
+# target_arch=$(uname -m)
 
 # cache dir where buildpkg, buildtree cache packages/pkgbuild, builiso iso files
 # cache_dir=/var/cache/manjaro-tools
 
 # build dir where buildpkg or buildiso chroots are created
 # chroots_dir=/var/lib/manjaro-tools
-
-# log dir where log files are created
-# log_dir='/var/log/manjaro-tools'
 
 # custom build mirror server
 # build_mirror=http://mirror.netzspielplatz.de/manjaro/packages
@@ -81,106 +78,78 @@ overriding
 
 ################ buildpkg ################
 
-# default pkg buildset; name without .set extension
-# buildset_pkg=default
+# default pkg build list; name without .list extension
+# build_list_pkg=default
 
 ################ buildiso ################
 
-# profile_repo='manjaro-tools-iso-profiles'
+# default iso build list; name without .list extension
+# build_list_iso=default
 
-# default iso buildset; name without .set extension
-# buildset_iso=default
+# the dist release; default: auto
+# dist_release=17.0
 
-# unset defaults to given value
-# dist_name="Manjaro"
-
-# unset defaults to given value
-# dist_release=15.12
-
-# unset defaults to value sourced from /etc/lsb-release
-# dist_codename="Capella"
-
-# unset defaults to given value
+# the branding; default: auto
 # dist_branding="MJRO"
-
-# unset defaults to given value
-# iso_kernel="linux44"
-
-# iso publisher
-# iso_publisher="Manjaro Linux <http://www.manjaro.org>"
-
-# iso app id
-# iso_app_id="Manjaro Linux Live/Rescue CD"
-
-# compression used, possible values xz (default, best compression), gzip, lzma, lzo, lz4
-# lz4 is faster but worst compression, may be useful for locally testing isos
-# iso_compression=xz
-
-# valid: md5, sha1, sha256, sha384, sha512
-# iso_checksum=md5
 
 # possible values: openrc,systemd
 # initsys="systemd"
 
 # unset defaults to given value
-# kernel="linux44"
+# kernel="linux49"
 
-# experimental; use overlayfs instead of aufs
-# requires minimum 4.0 kernel on the build host and on iso in profile.conf
-# use_overlayfs="true"
+# gpg key; leave empty or commented to skip sfs signing
+# gpgkey=""
 
 ################ deployiso ################
 
-# the server url
-# remote_url=sourceforge.net
-
-# the server project
-# remote_project=manjaro-testing
-
-# the server home
-# remote_target=/home/frs/project
-
 # the server user
-# remote_user=[SetUser]
+# account=[SetUser]
 
 # set upload bandwidth limit in kB/s
 # limit=100
 
-# the torrent tracker url
-# tracker_url=""
+# the torrent tracker urls, comma separated
+# tracker_url='udp://mirror.strits.dk:6969'
 
 # Piece size, 2^n
 # piece_size=21
+
+# iso mirrors
+# iso_mirrors=('heanet' 'jaist' 'netcologne' 'iweb' 'kent')
 ~~~
 
-###2. buildpkg
+### 2. buildpkg
 
 buildpkg is the chroot build script of manjaro-tools.
 It it run in a abs/pkgbuilds directory which contains directories with PKGBUILD.
 
-######manjaro-tools.conf supports the makepkg.conf variables
+###### manjaro-tools.conf supports the makepkg.conf variables
 
-####Arguments
+#### Arguments
 
 ~~~
 $ buildpkg -h
 Usage: buildpkg [options]
-    -p <pkg>           Buildset or pkg [default: default]
+    -p <pkg>           Build list or pkg [default: default]
     -a <arch>          Arch [default: auto]
     -b <branch>        Branch [default: stable]
     -r <dir>           Chroots directory
                        [default: /var/lib/manjaro-tools/buildpkg]
-    -i <pkg>           Install a package into the working copy of the chroot
-    -c                 Recreate chroot
+    -i <pkgs>          Install packages into the working copy of the chroot
+    -o                 Create chroot
+    -d                 Delete chroot
+    -c                 Clean chroot copy
+    -u                 Update chroot copy
     -w                 Clean up cache and sources
     -n                 Install and run namcap check
     -s                 Sign packages
-    -u                 udev base-devel group (no systemd)
+    -x                 Udev base-devel group (no systemd)
     -q                 Query settings and pretend build
     -h                 This help
 ~~~
 
-######* build sysvinit package for both arches and branch testing:
+###### * build sysvinit package for both arches and branch testing:
 
 * i686(buildsystem is x86_64)
 
@@ -197,33 +166,32 @@ buildpkg -p sysvinit -b testing -cswn
 You can drop the branch arg if you set the branch in manjaro-tools.conf
 The arch can also be set in manjaro-tools.conf, but under normal conditions, it is better to specify the non native arch by -a parameter.
 
-######* -c
+###### * -c
 * Removes the chroot dir
 * If the -c parameter is not used, buildpkg will update the existing chroot or create a new one if none is present.
 
-######* -w
+###### * -w
 * Cleans pkgcache, and logfiles
 
-######* -s
+###### * -s
 * Signs the package when built
 
-######* -n
+###### * -n
 * Installs the built package in the chroot and runs a namcap check
 
-######* -u
+###### * -u
 * Create udev build root (for eudev builds)
 
-###3. buildiso
+### 3. buildiso
 
 buildiso is used to build manjaro-iso-profiles. It is run insde the profiles folder.
 
-#####Packages for livecd only:
+##### Packages for livecd only:
 
-* manjaro-livecd-cli-installer
 * manjaro-livecd-openrc
 * manjaro-livecd-systemd
 
-####Arguments
+#### Arguments
 
 ~~~
 $ buildiso -h
@@ -236,21 +204,22 @@ Usage: buildiso [options]
     -t <dir>           Target directory
                        [default: /var/cache/manjaro-tools/iso]
     -k <name>          Kernel to use
-                       [default: linux44]
+                       [default: linux49]
     -i <name>          Init system to use
                        [default: systemd]
-    -s                 Sign the iso
+    -g <key>           The gpg key for sfs signing
+                       [default: empty]
+    -m                 Set SquashFS image mode to persistence
     -c                 Disable clean work dir
     -x                 Build images only
     -z                 Generate iso only
                        Requires pre built images (-x)
-    -l                 Log the build process
-    -v                 Verbose output, show profies detail (-q)
+    -v                 Verbose output to log file, show profile detail (-q)
     -q                 Query settings and pretend build
     -h                 This help
 ~~~
 
-######* build xfce iso profile for both arches and branch testing on x86_64 build system
+###### * build xfce iso profile for both arches and branch testing on x86_64 build system
 
 * i686 (buildsystem is x86_64)
 
@@ -266,21 +235,67 @@ buildiso -p xfce -b testing
 
 The branch can be defined also in manjaro-tools.conf, but a manual parameter will always override conf settings.
 
-####Special parameters
+#### Special parameters
 
-######* -i
+###### * -x
 * Build images only
 * will stop after all packages have been installed. No iso sqfs compression will be executed
 
-######* -s
-* Use this to sqfs compress the chroots if you previously used -i.
+###### * -z
+* Use this to sqfs compress the chroots if you previously used -x.
 
+### 4. check-yaml
 
-###4. buildtree
+check-yaml can be used to write profile package lists to yaml.
+It is also possible to generate calamares conf file as buildiso would do.
+yaml files are used by calamares netinstall option from a specified url(netgroups).
+
+~~~
+$ check-yaml -h
+Usage: check-yaml [options]
+    -p <profile>       Buildset or profile [default: default]
+    -a <arch>          Arch [default: auto]
+    -k <name>          Kernel to use[default: linux44]
+    -i <name>          Init system to use [default: systemd]
+    -c                 Check also calamares yaml files generated for the profile
+    -g                 Enable pacman group accepted for -p
+    -v                 Validate by schema
+    -q                 Query settings
+    -h                 This help
+~~~
+###### * build xfce iso profile for both arches and branch testing on x86_64 build system
+
+* i686 (buildsystem is x86_64)
+
+~~~
+check-yaml -p xfce -a i686 -c
+~~~
+
+* for x86_64
+
+~~~
+check-yaml -p xfce -c
+~~~
+
+* for a kdebase pacman group with validation
+
+~~~
+check-yaml -p kdebase -gv
+~~~
+
+#### Special parameters
+
+###### * -c
+* generate calamares module and settings conf files per profile
+
+###### * -g
+* generate a netgroup for specified pacman group
+
+### 5. buildtree
 
 buildtree is a little tools to sync arch abs and manjaro PKGBUILD git repos.
 
-####Arguments
+#### Arguments
 
 ~~~
 $ buildtree -h
@@ -292,19 +307,19 @@ Usage: buildtree [options]
     -h            This help
 ~~~
 
-######* sync arch and manjaro trees
+###### * sync arch and manjaro trees
 
 ~~~
 buildtree -as
 ~~~
 
-###5. manjaro-chroot
+### 6. manjaro-chroot
 
 manjaro-chroot is a little tool to quickly chroot into a second system installed on the host.
 If the automount option is enabled, manjaro-chroot will detect installed systems with os-prober, and pops up a list with linux systems to select from.
 If there is only 1 system installed besides the host system, no list will pop up and it will automatically mount the second system.
 
-####Arguments
+#### Arguments
 
 ~~~
 $ manjaro-chroot -h
@@ -319,50 +334,47 @@ usage: manjaro-chroot -a [or] manjaro-chroot chroot-dir [command]
     and /build/manjaro-tools/manjaro-chroot.
 ~~~
 
-######* automount
+###### * automount
 
 ~~~
 manjaro-chroot -a
 ~~~
 
-######* mount manually
+###### * mount manually
 
 ~~~
 manjaro-chroot /mnt /bin/bash
 ~~~
 
-###6. deployiso
+### 7. deployiso
 
 deployiso is a script to upload a specific iso or a buiildset to SF.
 It needs to be run inside the iso-profiles directory.
 
 Ideally, you have a running ssh agent on the host, and your key added, and your public key provided to your SF account. You can then upload without being asked for ssh password.
 
-####Arguments
+#### Arguments
 
 ~~~
 $ deployiso -h
 Usage: deployiso [options]
     -p                 Source folder to upload [default:default]
-    -a                 Arch to upload [default:x86_64]
-    -i                 The iso's init system [default:systemd]
     -l                 Limit bandwidth in kB/s [default:80]
-    -c                 Create new remote edition_type with subtree
-    -t                 Create a torrent from source folder
-    -t                 Create torrent from source folder
-    -u                 Update remote iso
+    -c                 Create new remote release directory
+    -u                 Update remote directory
+    -t                 Create iso torrent
     -q                 Query settings and pretend upload
     -v                 Verbose output
     -h                 This help
 ~~~
 
-######* upload official buildset, ie all built iso defined in a buildset
+###### * upload official build list, ie all built iso defined in a build list
 
 ~~~
 deployiso -p official -c
 ~~~
 
-######* upload xfce
+###### * upload xfce
 
 ~~~
 deployiso -p xfce -c

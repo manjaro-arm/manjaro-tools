@@ -9,58 +9,47 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-create_subtree_ssh(){
-	local tree=${remote_target}/${remote_project}/${remote_dir}
-        ssh !${remote_user}@${shell_url} [[ ! -d $tree ]] && mkdir -pv $tree
+connect(){
+    local home="/home/frs/project"
+    echo "${account},${project}@frs.${host}:${home}/${project}"
 }
 
-create_subtree(){
-	msg2 "Create (%s) ..." "${edition}/$1/${dist_release}"
-	rsync ${rsync_args[*]} /dev/null ${sf_url}/${edition}/
-	rsync ${rsync_args[*]} /dev/null ${sf_url}/${edition}/$1/
-	rsync ${rsync_args[*]} /dev/null ${sf_url}/${edition}/$1/${dist_release}/
-	msg2 "Done"
-	show_elapsed_time "${FUNCNAME}" "${timer_start}"
+gen_webseed(){
+    local webseed seed="$1"
+    for mirror in ${iso_mirrors[@]};do
+        webseed=${webseed:-}${webseed:+,}"http://${mirror}.dl.${seed}"
+    done
+    echo ${webseed}
+}
+
+make_torrent(){
+    find ${src_dir} -type f -name "*.torrent" -delete
+
+    if [[ -n $(find ${src_dir} -type f -name "*.iso") ]]; then
+        for iso in $(ls ${src_dir}/*.iso);do
+            local seed=${host}/project/${project}/${target_dir}/${iso##*/}
+            local mktorrent_args=(-c "${torrent_meta}" -p -l ${piece_size} -a ${tracker_url} -w $(gen_webseed ${seed}))
+            ${verbose} && mktorrent_args+=(-v)
+            msg2 "Creating (%s) ..." "${iso##*/}.torrent"
+            mktorrent ${mktorrent_args[*]} -o ${iso}.torrent ${iso}
+        done
+    fi
 }
 
 prepare_transfer(){
-	edition=$(get_edition $1)
-	remote_dir="${edition}/$1/${dist_release}/${arch}"
-	src_dir="${run_dir}/${remote_dir}"
-}
+    profile="$1"
+    edition=$(get_edition "${profile}")
+    url=$(connect)
 
-gen_iso_fn(){
-	local vars=() name
-	vars+=("${iso_name}")
-	[[ -n ${1} ]] && vars+=("${1}")
-	[[ ${edition} == 'community' ]] && vars+=("${edition}")
-	[[ ${initsys} == 'openrc' ]] && vars+=("${initsys}")
-	vars+=("${dist_release}")
-	vars+=("${arch}")
-	for n in ${vars[@]};do
-		name=${name:-}${name:+-}${n}
-	done
-	echo $name
-}
-
-create_torrent(){
-	msg "Create %s.torrent" "$1"
-	local name=$(gen_iso_fn "$1")
-	[[ -f ${src_dir}/${name}.torrent ]] && rm ${src_dir}/${name}.torrent
-	if [[ "${edition}" == 'official' ]];then
-		local webseed_url="http://${remote_url}/projects/${remote_project}/${remote_dir}/${name}.iso"
-		mktorrent_args+=(-w ${webseed_url})
-	fi
-	mktorrent ${mktorrent_args[*]} -o ${src_dir}/${name}.torrent ${src_dir}
-	msg "Done %s.torrent" "$1"
+    target_dir="${profile}/${dist_release}"
+    src_dir="${run_dir}/${edition}/${target_dir}"
+    ${torrent} && make_torrent
 }
 
 sync_dir(){
-	prepare_transfer "$1"
-	${torrent_create} && create_torrent "$1"
-	${remote_create} && create_subtree "$1"
-	msg "Start upload [%s] (%s) ..." "$1" "${arch}"
-	rsync ${rsync_args[*]} ${src_dir}/ ${sf_url}/${remote_dir}/
-	msg "Done upload [%s]" "$1"
-	show_elapsed_time "${FUNCNAME}" "${timer_start}"
+    prepare_transfer "$1"
+    msg "Start upload [%s] ..." "$1"
+    rsync ${rsync_args[*]} ${src_dir}/ ${url}/${target_dir}/
+    msg "Done upload [%s]" "$1"
+    show_elapsed_time "${FUNCNAME}" "${timer_start}"
 }

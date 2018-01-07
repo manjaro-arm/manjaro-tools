@@ -19,6 +19,7 @@ LIBDIR='@libdir@'
 
 import ${LIBDIR}/util.sh
 import ${LIBDIR}/util-mount.sh
+import ${LIBDIR}/util-chroot.sh
 
 newroot=/mnt
 
@@ -28,46 +29,45 @@ copymirrorlist=true
 
 usage() {
     echo "usage: ${0##*/} [options] root [packages...]"
-	echo " -C config      Use an alternate config file for pacman"
-	echo " -c             Use the package cache on the host, rather than the target"
-	echo " -d             Allow installation to a non-mountpoint directory"
-	echo " -G             Avoid copying the host's pacman keyring to the target"
-	echo " -i             Avoid auto-confirmation of package selections"
-	echo " -M             Avoid copying the host's mirrorlist to the target"
-	echo " -h             Print this help message"
-	echo ''
-	echo ' basestrap installs packages to the specified new root directory.'
-	echo ' If no packages are given, basestrap defaults to the "base" group.'
-	echo ''
-	echo ''
-	exit $1
+    echo " -C config      Use an alternate config file for pacman"
+    echo " -c             Use the package cache on the host, rather than the target"
+    echo " -d             Allow installation to a non-mountpoint directory"
+    echo " -G             Avoid copying the host's pacman keyring to the target"
+    echo " -i             Avoid auto-confirmation of package selections"
+    echo " -M             Avoid copying the host's mirrorlist to the target"
+    echo " -h             Print this help message"
+    echo ''
+    echo ' basestrap installs packages to the specified new root directory.'
+    echo ' If no packages are given, basestrap defaults to the "base" group.'
+    echo ''
+    echo ''
+    exit $1
 }
 
 # if [[ -z $1 || $1 = @(-h|--help) ]]; then
-#   usage
-#   exit $(( $# ? 0 : 1 ))
+#     usage
+#     exit $(( $# ? 0 : 1 ))
 # fi
-#
 
-orig_argv=("$@")
+orig_argv=("$0" "$@")
 
 opts=':C:cdGiM'
 
 while getopts ${opts} arg; do
-	case "${arg}" in
-		C) pacman_config=$OPTARG ;;
-		d) directory=true ;;
-		c) hostcache=true ;;
-		i) interactive=true ;;
-		G) copykeyring=false ;;
-		M) copymirrorlist=false ;;
-		:) echo "invalid argument ${arg}:$OPTARG"; usage 1;;
-		?) usage 0 ;;
-	esac
+    case "${arg}" in
+        C) pacman_config=$OPTARG ;;
+        d) directory=true ;;
+        c) hostcache=true ;;
+        i) interactive=true ;;
+        G) copykeyring=false ;;
+        M) copymirrorlist=false ;;
+        :) echo "invalid argument ${arg}:$OPTARG"; usage 1;;
+        ?) usage 0 ;;
+    esac
 done
 shift $(( OPTIND - 1 ))
 
-check_root "$0" "${orig_argv[@]}"
+check_root
 
 (( $# )) || die "No root directory specified"
 newroot=$1; shift
@@ -82,7 +82,7 @@ ${interactive} && pacman_args+=(--noconfirm)
 [[ -d $newroot ]] || die "%s is not a directory" "$newroot"
 
 if ! mountpoint -q "$newroot" && ! ${directory}; then
-  die '%s is not a mountpoint!' "$newroot"
+    die '%s is not a mountpoint!' "$newroot"
 fi
 
 # create obligatory directories
@@ -93,17 +93,17 @@ chroot_api_mount "$newroot" || die "failed to setup API filesystems in new root"
 
 msg2 'Installing packages to %s' "$newroot"
 if ! pacman -r "$newroot" -Sy "${pacman_args[@]}"; then
-	die 'Failed to install packages to new root'
+    die 'Failed to install packages to new root'
 fi
 
 # kill chroot process if needed (TODO: check if needed at all)
-kill_chroot_process "$newroot"
+# kill_chroot_process "$newroot"
 
 if ${copykeyring};then
-	copy_keyring "$newroot"
+    copy_keyring "$newroot"
 fi
 
 if ${copymirrorlist};then
-	copy_mirrorlist "$newroot"
+    copy_mirrorlist "$newroot"
 fi
 
